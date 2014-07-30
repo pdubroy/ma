@@ -1,0 +1,25 @@
+{
+  "name": "ma",
+  "version": "0.1.0",
+  "author": "Patrick Dubroy <pdubroy@gmail.com> (http://dubroy.com)",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "browserify": "^5.9.1",
+    "jshint": "^2.5.2",
+    "tape": "^2.13.4",
+    "watchify": "^1.0.1"
+  },
+  "scripts": {
+    "build": "browserify -s ma -o dist/ma-bundle.js index.js",
+    "watch": "watchify -s ma -o dist/ma-bundle.js index.js",
+    "test": "tape test/*.js",
+    "prepublish": "npm run build && npm run test && npm run lint",
+    "lint": "jshint index.js lib test"
+  },
+  "description": "An experiment in loosely-coupled coordination of processes -- inspired by tuple spaces.",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  }
+}
