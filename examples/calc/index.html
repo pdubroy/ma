@@ -1,0 +1,44 @@
+<!doctype html>
+<html>
+<head><title>Vats</title>
+  <style>
+    body, input {
+      font-family: Helvetica, Arial, sans-serif;
+      font-size: 24px;
+    }
+    #tuple-input {
+      border: 0;
+      outline: none;
+    }
+    .bracketed::before {
+      content: "[";
+    }
+    .bracketed::after {
+      content: "]";
+    }
+    .bracketed::before, .bracketed::after {
+      color: #ccc;
+      font-size: 48px;
+      position: relative;
+      top: 4px;
+    }
+    .tuple {
+      padding: 12px 18px;
+    }
+    #history-indicators .dot {
+      background-color: #ddd;
+      border-radius: 6px;
+      display: inline-block;
+      margin: 0 2px;
+      height: 10px;
+      width: 10px;
+    }
+    #history-indicators .dot.selected {
+      background-color: #1E6BED;
+    }
+  </style>
+</head>
+<body>
+<script src="index.js"></script>
+</body>
+</html>
