@@ -10,17 +10,24 @@ var _ = Vat.ANY;
 var $ = document.querySelector.bind(document);
 var ArrayProto = Array.prototype;
 
-Immutable.Vector.prototype.toString = function() {
-  return this.__toString('[', ']');
-};
-
-Immutable.Map.prototype.toString = function() {
-  return this.__toString('{', '}');
-};
+// Misc helpers
+// ------------
 
 function isNumber(x) {
   return Object.prototype.toString.call(x) === '[object Number]';
 }
+
+function stringify(obj) {
+  var ctor = obj.constructor;
+  if (ctor === Immutable.Vector)
+    return obj.__toString('[', ']');
+  else if (ctor == Immutable.Map)
+    return obj.__toString('{', '}');
+  return String(obj);
+}
+
+// UI Helpers
+// ----------
 
 // Adds an event listener for `event` to the document, and if the target
 // element matches `selector`, calls `listenerFn`.
@@ -62,7 +69,7 @@ function render(stateTuple) {
     tuples = vat.try_copy_all(_);
 
   tuples.forEach(function(t) {
-    nodes.push(h('div.tuple', t.toString()));
+    nodes.push(h('div.tuple', stringify(t)));
   });
   // Wrap everything in a top-level div.
   return h('div', nodes);
@@ -87,6 +94,9 @@ function addTuple(vat) {
   vat.put(tuple);
   input.value = '';  
 }
+
+// Main
+// ----
 
 (function main() {
   var vat = new Vat();
