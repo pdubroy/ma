@@ -31,7 +31,9 @@ test('basic put, try_copy, and try_take with tuples', function(t) {
   t.notOk(vat.try_take(tuple), 'tuples are not stored by reference');
 
   t2.push(2);
+  t.equal(vat.size(), 1);
   t.ok(vat.try_take(t2), 'succeeds with matching tuple');
+  t.equal(vat.size(), 0);
   t.notOk(vat.try_take(t2), 'tuple was removed from the vat');
 
   vat.put(tuple);
