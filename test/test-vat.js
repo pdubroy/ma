@@ -3,7 +3,7 @@
 var Immutable = require('immutable'),
     test = require('tape');
 
-var Vat = require('../lib/vat');
+var Vat = require('..').Vat;
 var _ = Vat.ANY;
 
 // Helpers
@@ -75,6 +75,23 @@ test('basic put, try_copy, and try_take with maps', function(t) {
 
   // For now, a pattern must specify *all* the keys in order to match.
   t.notOk(vat.try_copy({ a: 1 }));
+
+  t.end();
+});
+
+test('basic put, try_copy, and with records', function(t) {
+  var vat = new Vat();
+
+  var T = Immutable.Record({ x: 0 });
+  var r1 = T({ x: 1 });
+
+  vat.put(r1);
+  t.ok(vat.try_copy(r1));
+  t.ok(vat.try_copy(T({ x: 1 })));
+  t.notOk(vat.try_copy(T()));
+  t.notOk(vat.try_copy(T({ x: 2 })));
+  t.notOk(vat.try_copy(Immutable.Record({ x: 0 })({ x: 1 })));
+  t.notOk(vat.try_copy({ x: 1 }));
 
   t.end();
 });
