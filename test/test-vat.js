@@ -3,8 +3,10 @@
 var Immutable = require('immutable'),
     test = require('tape');
 
-var Vat = require('..').Vat;
-var _ = Vat.ANY;
+var ma = require('..');
+var Vat = ma.Vat;
+var _ = ma.match.ANY;
+var partial = ma.match.partial;
 
 // Helpers
 // -------

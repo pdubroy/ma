@@ -4,9 +4,10 @@ var createElement = require('virtual-dom/create-element'),
     vdom = require('virtual-dom'),
     underscore = require('underscore');
 
-var Vat = require('../../lib/vat');
+var ma = require('../../');
+var Vat = ma.Vat
 
-var _ = Vat.ANY;
+var _ = ma.match.ANY;
 var $ = document.querySelector.bind(document);
 var ArrayProto = Array.prototype;
 
