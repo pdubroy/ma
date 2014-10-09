@@ -6,7 +6,6 @@ var Immutable = require('immutable'),
 var ma = require('..');
 var Vat = ma.Vat;
 var _ = ma.match.ANY;
-var partial = ma.match.partial;
 
 // Helpers
 // -------
@@ -85,13 +84,13 @@ test('basic put, try_copy, and with records', function(t) {
   var vat = new Vat();
 
   var T = Immutable.Record({ x: 0 });
-  var r1 = T({ x: 1 });
+  var r1 = new T({ x: 1 });
 
   vat.put(r1);
   t.ok(vat.try_copy(r1));
-  t.ok(vat.try_copy(T({ x: 1 })));
-  t.notOk(vat.try_copy(T()));
-  t.notOk(vat.try_copy(T({ x: 2 })));
+  t.ok(vat.try_copy(new T({ x: 1 })));
+  t.notOk(vat.try_copy(new T()));
+  t.notOk(vat.try_copy(new T({ x: 2 })));
   t.notOk(vat.try_copy(Immutable.Record({ x: 0 })({ x: 1 })));
   t.notOk(vat.try_copy({ x: 1 }));
 

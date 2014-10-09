@@ -1,7 +1,6 @@
 'use strict';
 
-var Immutable = require('immutable'),
-    test = require('tape');
+var test = require('tape');
 
 var isEqual = require('../lib/isEqual'),
     match = require('..').match;
