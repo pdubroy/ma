@@ -298,6 +298,7 @@ function Vat() {
   // keep a history of the history.
   this._history = Object.create(Vat.prototype);
   this._history._init();
+  this._history.put(this._store);
 }
 
 util.inherits(Vat, EventEmitter);
@@ -308,11 +309,21 @@ Vat.prototype._init = function() {
 };
 
 Vat.prototype._updateStore = function(updateFn) {
-  var oldStore = this._store;
   this._store = updateFn.call(this);
-  if (this._history)
-    this._history.put(oldStore);
-  this.emit('change');
+  if (this._history) {
+    this._history.put(this._store);
+    this.emit('change');
+  }
+};
+
+Vat.prototype._doWithoutHistory = function(fn) {
+  var hist = this._history;
+  this._history = null;
+  try {
+    return fn.call(this);
+  } finally {
+    this._history = hist;
+  }
 };
 
 Vat.prototype._try = function(pattern, op, cb) {
@@ -343,9 +354,10 @@ Vat.prototype._removeAt = function(index) {
 };
 
 Vat.prototype._tryReaction = function(r) {
-  var match;
-  if (!(match = this.try_take(r.pattern, true)))
-    return;
+  var match = this._doWithoutHistory(function() {
+    return this.try_take(r.pattern, true);
+  });
+  if (!match) return;
 
   var root = match[0], path = match[1];
 

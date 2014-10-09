@@ -43,7 +43,7 @@ function render(stateTuple) {
   var vat = stateTuple.get(0);
   var which = stateTuple.get(1);
 
-  var historySize = vat._history.size() + 1;
+  var historySize = vat._history.size();
   var nodes = [
     h('span.bracketed', [h('input#tuple-input')]),
     h('input.button', {
