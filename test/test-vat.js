@@ -4,8 +4,10 @@ var Immutable = require('immutable'),
     test = require('tape');
 
 var ma = require('..');
+
 var Vat = ma.Vat;
 var _ = ma.match.ANY;
+var partial = ma.match.partial;
 
 // Helpers
 // -------
@@ -84,6 +86,18 @@ test('basic put, try_copy, and with records', function(t) {
   var vat = new Vat();
 
   var T = Immutable.Record({ x: 0 });
+  var r1 = new T({ x: 1 });
+
+  vat.put(r1);
+  t.ok(vat.try_copy(partial(new T({ x: 1 }))));
+
+  t.end();
+});
+
+test('partial matching of records', function(t) {
+  var vat = new Vat();
+
+  var T = Immutable.Record({ x: 0, y: 1 });
   var r1 = new T({ x: 1 });
 
   vat.put(r1);
