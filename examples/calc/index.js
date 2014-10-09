@@ -27,6 +27,10 @@ function stringify(obj) {
   return String(obj);
 }
 
+function clamp(val, lo, hi) {
+  return Math.max(lo, Math.min(val, hi));
+}
+
 // UI Helpers
 // ----------
 
@@ -52,7 +56,7 @@ function render(stateTuple) {
     }),
     h('#history-indicators', underscore.times(historySize, function(i) {
       var className = '.dot';
-      if (i == which)
+      if (i === which || (which < 0 && i === historySize + which))
         className += '.selected';
       return h(className);
     }))
@@ -64,10 +68,12 @@ function render(stateTuple) {
   var historyStore = vat._history._store;
   var tuples;
 
-  if (which >= 0 && which < historyStore.length)
+  if (historyStore.has(which)) {
     tuples = historyStore.get(which);
-  else
+  } else {
+    console.error('invalid history index:', which);
     tuples = vat.try_copy_all(_);
+  }
 
   tuples.forEach(function(t) {
     nodes.push(h('div.tuple', stringify(t)));
@@ -130,11 +136,11 @@ function addTuple(vat) {
   // There's no special support yet for nested vats, so updating `vat` does
   // not trigger anything in `change`. Do something about this!
   state.on('change', updateView);
-  state.put([vat, 0]);
+  state.put([vat, -1]);
 
   vat.on('change', function() {
     // Select the most recent history entry.
-    state.update([_, _], (t) => t.set(1, t.get(0)._history.size()));
+    state.update([_, _], (t) => t.set(1, -1));
   });
 
   addHandler('.dot', 'click', function() {
@@ -147,7 +153,12 @@ function addTuple(vat) {
   addHandler('body', 'keyup', function(e) {
     if (e.keyCode == 37 || e.keyCode == 39) {
       var diff = e.keyCode == 37 ? -1 : 1;
-      state.update([_, _], (t) => t.set(1, t.get(1) + diff));
+      state.update([_, _], (t) => {
+        var which = t.get(1);
+        if (which < 0)
+          which += vat._history.size();
+        return t.set(1, clamp(which + diff, 0, vat._history.size() - 1));
+      })
     }
   });
   $('#tuple-input').focus();
