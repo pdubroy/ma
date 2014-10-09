@@ -90,7 +90,7 @@ function createView(state) {
     update: function(state) {
       var newTree = render(state);
       root = vdom.patch(root, vdom.diff(tree, newTree));
-      tree = newTree;      
+      tree = newTree;
     }
   };
 }
@@ -123,23 +123,18 @@ function addTuple(vat) {
   var state = new Vat();
   var view;
 
-  function updateView() {
-    var tup = state.try_copy(_);
-    if (!tup) return;
+  function updateView(stateTuple) {
     if (view)
-      view.update(tup);
+      view.update(stateTuple);
     else
-      view = createView(tup);
-    return tup;
+      view = createView(stateTuple);
   }
 
-  // There's no special support yet for nested vats, so updating `vat` does
-  // not trigger anything in `change`. Do something about this!
-  state.on('change', updateView);
+  state.addObserver([_, _], updateView);
   state.put([vat, -1]);
 
+  // Whenever the vat is updated, select the most recent history entry.
   vat.on('change', function() {
-    // Select the most recent history entry.
     state.update([_, _], (t) => t.set(1, -1));
   });
 

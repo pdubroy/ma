@@ -227,6 +227,7 @@ var isEqual = require('./isEqual'),
     partial = require('./match').partial;
 
 var Reaction = Immutable.Record({ pattern: null, reaction: null }, 'Reaction');
+var Observer = Immutable.Record({ pattern: null, callback: null }, 'Observer');
 
 // Private helpers
 // ---------------
@@ -312,6 +313,8 @@ Vat.prototype._updateStore = function(updateFn) {
   this._store = updateFn.call(this);
   if (this._history) {
     this._history.put(this._store);
+
+    // TODO: Get rid of change events entirely.
     this.emit('change');
   }
 };
@@ -373,6 +376,12 @@ Vat.prototype._tryReaction = function(r) {
 };
 
 Vat.prototype.put = function(obj) {
+  // Copy the reactions before updating the store, as a reaction shouldn't be
+  // able to immediately react to itself.
+  var reactions = this.try_copy_all(partial(Reaction, {}));
+  var observers = this.try_copy_all(partial(Observer, {}));
+
+  // Update the store.
   var storedObj = Immutable.fromJS(obj);
   this._updateStore(function() {
     return this._store.push(storedObj);
@@ -385,9 +394,9 @@ Vat.prototype.put = function(obj) {
     return !self._try(info.pattern, info.op, info.callback);
   });
 
-  // TODO: A blocking take is basically a one-shot reaction. They should be
-  // implemented in the same way.
-  var reactions = this.try_copy_all(partial(Reaction, {}));
+  // TODO: A blocking take/copy is basically a one-time observer. They should
+  // be implemented in the same way.
+  observers.forEach(function(o) { self._try(o.pattern, 'copy', o.callback); });
   reactions.forEach(this._tryReaction.bind(this));
 };
 
@@ -424,10 +433,15 @@ Vat.prototype.addReaction = function(pattern, reaction) {
   this.put(new Reaction({ pattern: pattern, reaction: reaction }));
 };
 
-Vat.prototype.update = function(pattern, reaction) {
+Vat.prototype.addObserver = function(pattern, cb) {
+  this.put(new Observer({ pattern: pattern, callback: cb }));
+};
+
+Vat.prototype.update = function(pattern, cb) {
   var self = this;
+  this._tryOrWait(pattern, 'copy', cb);
   this.take(pattern, function(match) {
-    self.put(reaction(match));
+    self.put(cb(match));
   });
 };
 
@@ -437,6 +451,7 @@ Vat.prototype.size = function() {
 };
 
 Vat.Reaction = Reaction;
+Vat.Observer = Observer;
 
 // Exports
 // -------
