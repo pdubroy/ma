@@ -21,11 +21,14 @@ test('ANY', function(t) {
 });
 
 test('partial', function(t) {
-  t.ok(isEqual({ a: 2, b: 3 }, partial({})));
-  t.ok(isEqual({ a: 2, b: 3 }, partial({ a: 2})));
-  t.notOk(isEqual({ a: 1 }, partial({ a: 1, b: 2 })));
-  t.notOk(isEqual({ a: 1 }, partial({ a: 2 })));
+  var o = { a: 2, b: 3 };
+  t.ok(isEqual(o, partial({})));
+  t.ok(isEqual(o, partial({ a: 2})));
+  t.notOk(isEqual(o, partial({ a: 2, b: 3, c: 0 })));
+  t.notOk(isEqual(o, partial({ a: 2, b: 1 })));
+
   t.notOk(isEqual({ a: { b: 2 } }, partial({ a: {} })), 'partial does not apply recursively');
+  t.ok(isEqual({ a: { b: 2, c: 1 }}, { a: partial({ b: 2 })}), 'nested partial works');
 
   t.end();
 });
