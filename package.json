@@ -11,6 +11,7 @@
     "browserify": "^5.9.1",
     "es6ify": "^1.4.0",
     "jshint": "^2.5.2",
+    "tap-spec": "^1.0.1",
     "tape": "^2.13.4",
     "underscore": "^1.7.0",
     "virtual-dom": "0.0.21",
@@ -20,7 +21,7 @@
     "build": "browserify -s ma -o dist/ma-bundle.js index.js",
     "watch": "watchify -s ma -o dist/ma-bundle.js index.js",
     "demo": "beefy examples/calc/index.js -- -d -t es6ify",
-    "test": "tape test/*.js",
+    "test": "tape test/*.js | tap-spec",
     "prepublish": "npm run build && npm run test && npm run lint",
     "lint": "jshint index.js lib test"
   },
