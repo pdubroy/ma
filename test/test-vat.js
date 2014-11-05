@@ -165,7 +165,7 @@ test('deep matching', function(t) {
 
   var result = vat.try_take([_, _, _], true);
   t.ok(result);
-  t.deepEqual(result[0], Immutable.fromJS(tup));
+  t.ok(Immutable.is(result[0], Immutable.fromJS(tup)));
   var path = result[1];
   t.deepEqual(path, [1]);
 
@@ -206,7 +206,7 @@ test('reactions', function(t) {
   vat.put([0, 0, 0, id]);
   t.ok(vat.try_copy([0, 0, 0, 16]));
 
-  // Test that Immutable.Vectors work as return values, not only Arrays.
+  // Test that Immutable.List instances work as return values, not only Arrays.
   vat.addReaction(['test'], function(t) {
     return t.push('yes');
   });

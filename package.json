@@ -4,7 +4,7 @@
   "author": "Patrick Dubroy <pdubroy@gmail.com> (http://dubroy.com)",
   "license": "MIT",
   "dependencies": {
-    "immutable": "^2.1.0"
+    "immutable": "^3.0.2"
   },
   "devDependencies": {
     "beefy": "^2.1.1",

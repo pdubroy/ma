@@ -19,10 +19,9 @@ function isNumber(x) {
 }
 
 function stringify(obj) {
-  var ctor = obj.constructor;
-  if (ctor === Immutable.Vector)
+  if (Immutable.List.isList(obj))
     return obj.__toString('[', ']');
-  else if (ctor == Immutable.Map)
+  else if (Immutable.Map.isMap(obj))
     return obj.__toString('{', '}');
   return String(obj);
 }
