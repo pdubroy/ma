@@ -7,7 +7,6 @@ var ma = require('..');
 
 var Vat = ma.Vat;
 var _ = ma.match.ANY;
-var partial = ma.match.partial;
 
 // Helpers
 // -------
@@ -67,17 +66,14 @@ test('basic put, try_copy, and try_take with maps', function(t) {
   t.ok(vat.try_take({}));
 
   vat.put({ foo: 3 });
-  t.notOk(vat.try_copy({}));
+  t.ok(vat.try_copy({}));
   t.ok(vat.try_copy({ foo: 3 }));
   t.notOk(vat.try_copy({ foo: 2 }));
   t.ok(vat.try_copy({ foo: _ }));
 
   vat.put({ a: 1, b: 2 });
-  t.notOk(vat.try_copy({ a: 1 }));
+  t.ok(vat.try_copy({ a: 1 }));
   t.ok(vat.try_copy({ a: 1, b: 2 }));
-
-  // For now, a pattern must specify *all* the keys in order to match.
-  t.notOk(vat.try_copy({ a: 1 }));
 
   t.end();
 });
@@ -89,7 +85,7 @@ test('basic put, try_copy, and with records', function(t) {
   var r1 = new T({ x: 1 });
 
   vat.put(r1);
-  t.ok(vat.try_copy(partial(new T({ x: 1 }))));
+  t.ok(vat.try_copy(new T({ x: 1 })));
 
   t.end();
 });

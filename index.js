@@ -1,4 +1,6 @@
 module.exports = {
   Vat: require('./lib/vat'),
-  match: require('./lib/match')
+  match: {
+  	ANY: require('./third_party/pattern-match').Matcher._
+  }
 };

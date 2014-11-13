@@ -1,265 +1,108 @@
 !function(e){if("object"==typeof exports&&"undefined"!=typeof module)module.exports=e();else if("function"==typeof define&&define.amd)define([],e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.ma=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 module.exports = {
   Vat: require('./lib/vat'),
-  match: require('./lib/match')
-};
-
-},{"./lib/match":3,"./lib/vat":4}],2:[function(require,module,exports){
-// Based on Underscore.js 1.7.0 (http://underscorejs.org)
-// (c) 2009-2014 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
-// Underscore may be freely distributed under the MIT license.
-
-// Original source:
-// https://github.com/jashkenas/underscore/blob/3f8d99ef97c8111c1c0196862588d8ceebe65384/underscore.js
-
-/* jshint ignore: start */
-
-var Immutable = require('immutable');
-
-// Re-implementations of Underscore internal stuff
-// -----------------------------------------------
-
-var toString = Object.prototype.toString,
-    hasOwnProperty = Object.prototype.hasOwnProperty;
-
-function isObject(obj) {
-  var type = typeof obj;
-  return type === 'function' || type === 'object' && !!obj;
-}
-
-var _ = {
-  isFunction: function(obj) {
-    return toString.call(obj) === '[object Function]';
-  },
-  has: function(obj, key) {
-    if (obj.constructor === Immutable.Map)
-      return obj.has(key);
-
-    return obj != null && hasOwnProperty.call(obj, key);
-  },
-  keys: function(obj) {
-    if (!isObject(obj)) return [];
-
-    if (obj.constructor === Immutable.Map) {
-      var result = [];
-      for (var it = obj.keys();;) {
-        var val = it.next();
-        if (val.done) break;
-        result.push(val.value);
-      }
-      return result;
-    }
-
-    // Unlike Underscore, no fallback for ECMAScript < 5.1 here.
-    return Object.keys(obj);
+  match: {
+  	ANY: require('./third_party/pattern-match').Matcher._
   }
 };
 
-// Core implementation for equality testing
-// ----------------------------------------
-
-// Internal recursive comparison function for `isEqual`.
-var eq = function(a, b, aStack, bStack) {
-  // Identical objects are equal. `0 === -0`, but they aren't identical.
-  // See the [Harmony `egal` proposal](http://wiki.ecmascript.org/doku.php?id=harmony:egal).
-  if (a === b) return a !== 0 || 1 / a === 1 / b;
-
-  // Support predicates, but only for the `b` object.
-  if (_.isFunction(b))
-    return b(a);
-
-  // A strict comparison is necessary because `null == undefined`.
-  if (a == null || b == null) return a === b;
-
-  // Handle lists from immutable-js.
-  var areLists =
-      Immutable.List.isList(a) && Immutable.List.isList(b);
-
-  if (!areLists) {
-    // Compare `[[Class]]` names.
-    var className = toString.call(a);
-    if (className !== toString.call(b)) return false;
-    switch (className) {
-      // Strings, numbers, regular expressions, dates, and booleans are compared by value.
-      case '[object RegExp]':
-      // RegExps are coerced to strings for comparison (Note: '' + /a/i === '/a/i')
-      case '[object String]':
-        // Primitives and their corresponding object wrappers are equivalent; thus, `"5"` is
-        // equivalent to `new String("5")`.
-        return '' + a === '' + b;
-      case '[object Number]':
-        // `NaN`s are equivalent, but non-reflexive.
-        // Object(NaN) is equivalent to NaN
-        if (+a !== +a) return +b !== +b;
-        // An `egal` comparison is performed for other numeric values.
-        return +a === 0 ? 1 / +a === 1 / b : +a === +b;
-      case '[object Date]':
-      case '[object Boolean]':
-        // Coerce dates and booleans to numeric primitive values. Dates are compared by their
-        // millisecond representations. Note that invalid dates with millisecond representations
-        // of `NaN` are not equivalent.
-        return +a === +b;
-    }
-  }
-
-  var areArrays = className === '[object Array]';
-  if (!areArrays && !areLists) {
-    if (typeof a != 'object' || typeof b != 'object') return false;
-
-    // Objects with different constructors are not equivalent, but `Object`s or `Array`s
-    // from different frames are.
-    var aCtor = a.constructor, bCtor = b.constructor;
-    if (aCtor !== bCtor && !(_.isFunction(aCtor) && aCtor instanceof aCtor &&
-                             _.isFunction(bCtor) && bCtor instanceof bCtor)
-                        && ('constructor' in a && 'constructor' in b)) {
-      return false;
-    }
-  }
-
-  // Assume equality for cyclic structures. The algorithm for detecting cyclic
-  // structures is adapted from ES 5.1 section 15.12.3, abstract operation `JO`.
-  var length = aStack.length;
-  while (length--) {
-    // Linear search. Performance is inversely proportional to the number of
-    // unique nested structures.
-    if (aStack[length] === a) return bStack[length] === b;
-  }
-
-  // Add the first object to the stack of traversed objects.
-  aStack.push(a);
-  bStack.push(b);
-  var size, result;
-  // Recursively compare objects and arrays.
-  if (areArrays || areLists) {
-    // Compare array lengths to determine if a deep comparison is necessary.
-    size = 'size' in a ? a.size : a.length;
-    result = size === ('size' in b ? b.size : b.length);
-    if (result) {
-      // Deep compare the contents, ignoring non-numeric properties.
-      if (areLists) {
-        while (size--)
-          if (!(result = eq(a.get(size), b.get(size), aStack, bStack))) break;
-      } else {
-        while (size--)
-          if (!(result = eq(a[size], b[size], aStack, bStack))) break;
-      }
-    }
-  } else {
-    // Deep compare objects/maps.
-    var keys = _.keys(a), key;
-    size = keys.length;
-
-    // Handle Maps from immutable-js.
-    var areMaps =
-        a.constructor === Immutable.Map && a.constructor === b.constructor;
-
-    // Ensure that both objects contain the same number of properties before comparing deep equality.
-    result = _.keys(b).length === size;
-    if (result) {
-      while (size--) {
-        // Deep compare each member
-        key = keys[size];
-        if (!(result = _.has(b, key) &&
-            eq(areMaps ? a.get(key) : a[key], areMaps ? b.get(key) : b[key], aStack, bStack))) {
-          break;
-        }
-      }
-    }
-  }
-  // Remove the first object from the stack of traversed objects.
-  aStack.pop();
-  bStack.pop();
-  return result;
-};
-
-// Exports
-// -------
-
-// Performs a deep comparison to check if two objects are equal.
-function isEqual(a, b) {
-  return eq(a, b, [], []);
-}
-
-module.exports = isEqual;
-
-},{"immutable":11}],3:[function(require,module,exports){
+},{"./lib/vat":2,"./third_party/pattern-match":13}],2:[function(require,module,exports){
 'use strict';
 
-var Immutable = require('Immutable');
-var isEqual = require('./isEqual');
-
-function ANY() { return true; }
-ANY.toString = function() { return '(ANY)'; };
-
-function partial(recordType, b) {
-  // Handle invocation with only a single argument.
-  if (arguments.length < 2) {
-    b = recordType;
-    recordType = null;
-  }
-
-  // Returns true if every key in `b` has the same value as in `a`, otherwise
-  // false. Any keys in `a` that are not in `b` are irrelevant.
-  return function matchSubset(a) {
-    if (recordType && a.constructor !== recordType)
-      return false;
-
-    if (!Immutable.Iterable.isIterable(a))
-      a = Immutable.fromJS(a);
-
-    return isEqual(a, a.merge(b));
-  };
-}
-
-module.exports = {
-  ANY: ANY,
-  partial: partial
-};
-
-},{"./isEqual":2,"Immutable":5}],4:[function(require,module,exports){
-'use strict';
-
-var EventEmitter = require('events').EventEmitter,
+var assert = require('assert'),
+    EventEmitter = require('events').EventEmitter,
     Immutable = require('immutable'),
     util = require('util');
 
-var isEqual = require('./isEqual'),
-    partial = require('./match').partial;
+var pm = require('../third_party/pattern-match'),
+    walk = require('tree-walk');
 
 var Reaction = Immutable.Record({ pattern: null, reaction: null }, 'Reaction');
 var Observer = Immutable.Record({ pattern: null, callback: null }, 'Observer');
 
+var instanceOf = pm.Matcher.instanceOf;
+
+// Custom walker for walking immutable-js objects.
+var immutableWalker = walk(function(node) {
+  return Immutable.Iterable.isIterable(node) ? node.toJS() : node;
+});
+
 // Private helpers
 // ---------------
 
-// The equivalent of `indexOf` but using `isEqual` rather than ==.
+// Custom pattern for matching Immutable.Map and Immutable.Record objects.
+var immutableObj = pm.Pattern.extend({
+  init: function(objPattern, ctor) {
+    this.objPattern = objPattern;
+    this.ctor = ctor || Immutable.Map;
+    this.arity = this.getArity(objPattern);
+  },
+  match: function(value, bindings) {
+    if (value instanceof this.ctor)
+      return this.performMatch(value.toObject(), this.objPattern, bindings);
+    return pm.match.FAIL;
+  }
+});
+
+// Custom pattern for matching Immutable.List objects.
+var immutableList = pm.Pattern.extend({
+  init: function(arrPattern) {
+    this.arrPattern = arrPattern;
+    this.arity = this.getArity(arrPattern);
+  },
+  match: function(value, bindings) {
+    if (Immutable.List.isList(value))
+      return this.performMatch(value.toArray(), this.arrPattern, bindings);
+    return pm.match.FAIL;
+  }
+});
+
+function matches(value, pattern) {
+  return pm.match(value, pattern, undefined) !== pm.match.FAIL;
+}
+
+function convertPattern(p) {
+  return immutableWalker.reduce(p, function(memo, node, key, parent) {
+    if (Array.isArray(node))
+      return immutableList(memo || []);
+    if (typeof node === 'function')
+      return node;
+    if (node instanceof Immutable.Record)
+      return immutableObj(memo || {}, node.constructor);
+    if (node instanceof Object)
+      return immutableObj(memo || {});
+    assert(!memo);
+    return node;
+  });
+}
+
+// The equivalent of `indexOf` but using `matches` rather than ==.
 function find(arr, pattern) {
-  var v = Immutable.fromJS(pattern);
+  var p = convertPattern(pattern);
   for (var i = 0; i < arr.size; ++i) {
-    if (isEqual(arr.get(i), v)) {
+    if (matches(arr.get(i), p))
       return i;
-    }
   }
   return -1;
 }
 
 function findAll(arr, pattern) {
-  var v = Immutable.fromJS(pattern);
+  var p = convertPattern(pattern);
   var result = [];
   for (var i = 0; i < arr.size; ++i) {
-    var candidate = arr.get(i);
-    if (isEqual(candidate, v))
-      result.push(candidate);
+    var value = arr.get(i);
+    if (matches(value, p))
+      result.push(value);
   }
   return result;
 }
 
 function findDeep(arr, pattern) {
-  var v = Immutable.fromJS(pattern);
+  var p = convertPattern(pattern);
   var path = [];
   for (var i = 0; i < arr.size; ++i) {
     path.push(i);
-    if (matches(arr.get(i), v, path))
+    if (matchDeep(arr.get(i), p, path))
       return path;
     path.pop();
   }
@@ -267,19 +110,19 @@ function findDeep(arr, pattern) {
 }
 
 // Recursively tries to match `obj` with `pattern`.
-function matches(obj, pattern, path) {
-  if (isEqual(obj, pattern))
+function matchDeep(obj, pattern, path) {
+  if (matches(obj, pattern))
     return true;
 
-  var isList = obj && obj.constructor === Immutable.List;
-  var isMap = obj && obj.constructor === Immutable.Map;
+  var isList = obj && Immutable.List.isList(obj);
+  var isMap = obj && Immutable.Map.isMap(obj);
 
   if (isList || isMap) {
     for (var it = obj.entries();;) {
       var entry = it.next();
       if (entry.done) break;
       path.push(entry.value[0]);
-      if (matches(entry.value[1], pattern, path))
+      if (matchDeep(entry.value[1], pattern, path))
         return true;
       path.pop();
     }
@@ -378,8 +221,8 @@ Vat.prototype._tryReaction = function(r) {
 Vat.prototype.put = function(obj) {
   // Copy the reactions before updating the store, as a reaction shouldn't be
   // able to immediately react to itself.
-  var reactions = this.try_copy_all(partial(Reaction, {}));
-  var observers = this.try_copy_all(partial(Observer, {}));
+  var observers = this.try_copy_all(instanceOf(Observer));
+  var reactions = this.try_copy_all(instanceOf(Reaction));
 
   // Update the store.
   var storedObj = Immutable.fromJS(obj);
@@ -458,7 +301,1359 @@ Vat.Observer = Observer;
 
 module.exports = Vat;
 
-},{"./isEqual":2,"./match":3,"events":6,"immutable":11,"util":10}],5:[function(require,module,exports){
+},{"../third_party/pattern-match":13,"assert":3,"events":4,"immutable":9,"tree-walk":10,"util":8}],3:[function(require,module,exports){
+// http://wiki.commonjs.org/wiki/Unit_Testing/1.0
+//
+// THIS IS NOT TESTED NOR LIKELY TO WORK OUTSIDE V8!
+//
+// Originally from narwhal.js (http://narwhaljs.org)
+// Copyright (c) 2009 Thomas Robinson <280north.com>
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the 'Software'), to
+// deal in the Software without restriction, including without limitation the
+// rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+// sell copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+// ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+// WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+// when used in node, this will actually load the util module we depend on
+// versus loading the builtin util module as happens otherwise
+// this is a bug in node module loading as far as I am concerned
+var util = require('util/');
+
+var pSlice = Array.prototype.slice;
+var hasOwn = Object.prototype.hasOwnProperty;
+
+// 1. The assert module provides functions that throw
+// AssertionError's when particular conditions are not met. The
+// assert module must conform to the following interface.
+
+var assert = module.exports = ok;
+
+// 2. The AssertionError is defined in assert.
+// new assert.AssertionError({ message: message,
+//                             actual: actual,
+//                             expected: expected })
+
+assert.AssertionError = function AssertionError(options) {
+  this.name = 'AssertionError';
+  this.actual = options.actual;
+  this.expected = options.expected;
+  this.operator = options.operator;
+  if (options.message) {
+    this.message = options.message;
+    this.generatedMessage = false;
+  } else {
+    this.message = getMessage(this);
+    this.generatedMessage = true;
+  }
+  var stackStartFunction = options.stackStartFunction || fail;
+
+  if (Error.captureStackTrace) {
+    Error.captureStackTrace(this, stackStartFunction);
+  }
+  else {
+    // non v8 browsers so we can have a stacktrace
+    var err = new Error();
+    if (err.stack) {
+      var out = err.stack;
+
+      // try to strip useless frames
+      var fn_name = stackStartFunction.name;
+      var idx = out.indexOf('\n' + fn_name);
+      if (idx >= 0) {
+        // once we have located the function frame
+        // we need to strip out everything before it (and its line)
+        var next_line = out.indexOf('\n', idx + 1);
+        out = out.substring(next_line + 1);
+      }
+
+      this.stack = out;
+    }
+  }
+};
+
+// assert.AssertionError instanceof Error
+util.inherits(assert.AssertionError, Error);
+
+function replacer(key, value) {
+  if (util.isUndefined(value)) {
+    return '' + value;
+  }
+  if (util.isNumber(value) && (isNaN(value) || !isFinite(value))) {
+    return value.toString();
+  }
+  if (util.isFunction(value) || util.isRegExp(value)) {
+    return value.toString();
+  }
+  return value;
+}
+
+function truncate(s, n) {
+  if (util.isString(s)) {
+    return s.length < n ? s : s.slice(0, n);
+  } else {
+    return s;
+  }
+}
+
+function getMessage(self) {
+  return truncate(JSON.stringify(self.actual, replacer), 128) + ' ' +
+         self.operator + ' ' +
+         truncate(JSON.stringify(self.expected, replacer), 128);
+}
+
+// At present only the three keys mentioned above are used and
+// understood by the spec. Implementations or sub modules can pass
+// other keys to the AssertionError's constructor - they will be
+// ignored.
+
+// 3. All of the following functions must throw an AssertionError
+// when a corresponding condition is not met, with a message that
+// may be undefined if not provided.  All assertion methods provide
+// both the actual and expected values to the assertion error for
+// display purposes.
+
+function fail(actual, expected, message, operator, stackStartFunction) {
+  throw new assert.AssertionError({
+    message: message,
+    actual: actual,
+    expected: expected,
+    operator: operator,
+    stackStartFunction: stackStartFunction
+  });
+}
+
+// EXTENSION! allows for well behaved errors defined elsewhere.
+assert.fail = fail;
+
+// 4. Pure assertion tests whether a value is truthy, as determined
+// by !!guard.
+// assert.ok(guard, message_opt);
+// This statement is equivalent to assert.equal(true, !!guard,
+// message_opt);. To test strictly for the value true, use
+// assert.strictEqual(true, guard, message_opt);.
+
+function ok(value, message) {
+  if (!value) fail(value, true, message, '==', assert.ok);
+}
+assert.ok = ok;
+
+// 5. The equality assertion tests shallow, coercive equality with
+// ==.
+// assert.equal(actual, expected, message_opt);
+
+assert.equal = function equal(actual, expected, message) {
+  if (actual != expected) fail(actual, expected, message, '==', assert.equal);
+};
+
+// 6. The non-equality assertion tests for whether two objects are not equal
+// with != assert.notEqual(actual, expected, message_opt);
+
+assert.notEqual = function notEqual(actual, expected, message) {
+  if (actual == expected) {
+    fail(actual, expected, message, '!=', assert.notEqual);
+  }
+};
+
+// 7. The equivalence assertion tests a deep equality relation.
+// assert.deepEqual(actual, expected, message_opt);
+
+assert.deepEqual = function deepEqual(actual, expected, message) {
+  if (!_deepEqual(actual, expected)) {
+    fail(actual, expected, message, 'deepEqual', assert.deepEqual);
+  }
+};
+
+function _deepEqual(actual, expected) {
+  // 7.1. All identical values are equivalent, as determined by ===.
+  if (actual === expected) {
+    return true;
+
+  } else if (util.isBuffer(actual) && util.isBuffer(expected)) {
+    if (actual.length != expected.length) return false;
+
+    for (var i = 0; i < actual.length; i++) {
+      if (actual[i] !== expected[i]) return false;
+    }
+
+    return true;
+
+  // 7.2. If the expected value is a Date object, the actual value is
+  // equivalent if it is also a Date object that refers to the same time.
+  } else if (util.isDate(actual) && util.isDate(expected)) {
+    return actual.getTime() === expected.getTime();
+
+  // 7.3 If the expected value is a RegExp object, the actual value is
+  // equivalent if it is also a RegExp object with the same source and
+  // properties (`global`, `multiline`, `lastIndex`, `ignoreCase`).
+  } else if (util.isRegExp(actual) && util.isRegExp(expected)) {
+    return actual.source === expected.source &&
+           actual.global === expected.global &&
+           actual.multiline === expected.multiline &&
+           actual.lastIndex === expected.lastIndex &&
+           actual.ignoreCase === expected.ignoreCase;
+
+  // 7.4. Other pairs that do not both pass typeof value == 'object',
+  // equivalence is determined by ==.
+  } else if (!util.isObject(actual) && !util.isObject(expected)) {
+    return actual == expected;
+
+  // 7.5 For all other Object pairs, including Array objects, equivalence is
+  // determined by having the same number of owned properties (as verified
+  // with Object.prototype.hasOwnProperty.call), the same set of keys
+  // (although not necessarily the same order), equivalent values for every
+  // corresponding key, and an identical 'prototype' property. Note: this
+  // accounts for both named and indexed properties on Arrays.
+  } else {
+    return objEquiv(actual, expected);
+  }
+}
+
+function isArguments(object) {
+  return Object.prototype.toString.call(object) == '[object Arguments]';
+}
+
+function objEquiv(a, b) {
+  if (util.isNullOrUndefined(a) || util.isNullOrUndefined(b))
+    return false;
+  // an identical 'prototype' property.
+  if (a.prototype !== b.prototype) return false;
+  //~~~I've managed to break Object.keys through screwy arguments passing.
+  //   Converting to array solves the problem.
+  if (isArguments(a)) {
+    if (!isArguments(b)) {
+      return false;
+    }
+    a = pSlice.call(a);
+    b = pSlice.call(b);
+    return _deepEqual(a, b);
+  }
+  try {
+    var ka = objectKeys(a),
+        kb = objectKeys(b),
+        key, i;
+  } catch (e) {//happens when one is a string literal and the other isn't
+    return false;
+  }
+  // having the same number of owned properties (keys incorporates
+  // hasOwnProperty)
+  if (ka.length != kb.length)
+    return false;
+  //the same set of keys (although not necessarily the same order),
+  ka.sort();
+  kb.sort();
+  //~~~cheap key test
+  for (i = ka.length - 1; i >= 0; i--) {
+    if (ka[i] != kb[i])
+      return false;
+  }
+  //equivalent values for every corresponding key, and
+  //~~~possibly expensive deep test
+  for (i = ka.length - 1; i >= 0; i--) {
+    key = ka[i];
+    if (!_deepEqual(a[key], b[key])) return false;
+  }
+  return true;
+}
+
+// 8. The non-equivalence assertion tests for any deep inequality.
+// assert.notDeepEqual(actual, expected, message_opt);
+
+assert.notDeepEqual = function notDeepEqual(actual, expected, message) {
+  if (_deepEqual(actual, expected)) {
+    fail(actual, expected, message, 'notDeepEqual', assert.notDeepEqual);
+  }
+};
+
+// 9. The strict equality assertion tests strict equality, as determined by ===.
+// assert.strictEqual(actual, expected, message_opt);
+
+assert.strictEqual = function strictEqual(actual, expected, message) {
+  if (actual !== expected) {
+    fail(actual, expected, message, '===', assert.strictEqual);
+  }
+};
+
+// 10. The strict non-equality assertion tests for strict inequality, as
+// determined by !==.  assert.notStrictEqual(actual, expected, message_opt);
+
+assert.notStrictEqual = function notStrictEqual(actual, expected, message) {
+  if (actual === expected) {
+    fail(actual, expected, message, '!==', assert.notStrictEqual);
+  }
+};
+
+function expectedException(actual, expected) {
+  if (!actual || !expected) {
+    return false;
+  }
+
+  if (Object.prototype.toString.call(expected) == '[object RegExp]') {
+    return expected.test(actual);
+  } else if (actual instanceof expected) {
+    return true;
+  } else if (expected.call({}, actual) === true) {
+    return true;
+  }
+
+  return false;
+}
+
+function _throws(shouldThrow, block, expected, message) {
+  var actual;
+
+  if (util.isString(expected)) {
+    message = expected;
+    expected = null;
+  }
+
+  try {
+    block();
+  } catch (e) {
+    actual = e;
+  }
+
+  message = (expected && expected.name ? ' (' + expected.name + ').' : '.') +
+            (message ? ' ' + message : '.');
+
+  if (shouldThrow && !actual) {
+    fail(actual, expected, 'Missing expected exception' + message);
+  }
+
+  if (!shouldThrow && expectedException(actual, expected)) {
+    fail(actual, expected, 'Got unwanted exception' + message);
+  }
+
+  if ((shouldThrow && actual && expected &&
+      !expectedException(actual, expected)) || (!shouldThrow && actual)) {
+    throw actual;
+  }
+}
+
+// 11. Expected to throw an error:
+// assert.throws(block, Error_opt, message_opt);
+
+assert.throws = function(block, /*optional*/error, /*optional*/message) {
+  _throws.apply(this, [true].concat(pSlice.call(arguments)));
+};
+
+// EXTENSION! This is annoying to write outside this module.
+assert.doesNotThrow = function(block, /*optional*/message) {
+  _throws.apply(this, [false].concat(pSlice.call(arguments)));
+};
+
+assert.ifError = function(err) { if (err) {throw err;}};
+
+var objectKeys = Object.keys || function (obj) {
+  var keys = [];
+  for (var key in obj) {
+    if (hasOwn.call(obj, key)) keys.push(key);
+  }
+  return keys;
+};
+
+},{"util/":8}],4:[function(require,module,exports){
+// Copyright Joyent, Inc. and other Node contributors.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to permit
+// persons to whom the Software is furnished to do so, subject to the
+// following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+// USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+function EventEmitter() {
+  this._events = this._events || {};
+  this._maxListeners = this._maxListeners || undefined;
+}
+module.exports = EventEmitter;
+
+// Backwards-compat with node 0.10.x
+EventEmitter.EventEmitter = EventEmitter;
+
+EventEmitter.prototype._events = undefined;
+EventEmitter.prototype._maxListeners = undefined;
+
+// By default EventEmitters will print a warning if more than 10 listeners are
+// added to it. This is a useful default which helps finding memory leaks.
+EventEmitter.defaultMaxListeners = 10;
+
+// Obviously not all Emitters should be limited to 10. This function allows
+// that to be increased. Set to zero for unlimited.
+EventEmitter.prototype.setMaxListeners = function(n) {
+  if (!isNumber(n) || n < 0 || isNaN(n))
+    throw TypeError('n must be a positive number');
+  this._maxListeners = n;
+  return this;
+};
+
+EventEmitter.prototype.emit = function(type) {
+  var er, handler, len, args, i, listeners;
+
+  if (!this._events)
+    this._events = {};
+
+  // If there is no 'error' event listener then throw.
+  if (type === 'error') {
+    if (!this._events.error ||
+        (isObject(this._events.error) && !this._events.error.length)) {
+      er = arguments[1];
+      if (er instanceof Error) {
+        throw er; // Unhandled 'error' event
+      }
+      throw TypeError('Uncaught, unspecified "error" event.');
+    }
+  }
+
+  handler = this._events[type];
+
+  if (isUndefined(handler))
+    return false;
+
+  if (isFunction(handler)) {
+    switch (arguments.length) {
+      // fast cases
+      case 1:
+        handler.call(this);
+        break;
+      case 2:
+        handler.call(this, arguments[1]);
+        break;
+      case 3:
+        handler.call(this, arguments[1], arguments[2]);
+        break;
+      // slower
+      default:
+        len = arguments.length;
+        args = new Array(len - 1);
+        for (i = 1; i < len; i++)
+          args[i - 1] = arguments[i];
+        handler.apply(this, args);
+    }
+  } else if (isObject(handler)) {
+    len = arguments.length;
+    args = new Array(len - 1);
+    for (i = 1; i < len; i++)
+      args[i - 1] = arguments[i];
+
+    listeners = handler.slice();
+    len = listeners.length;
+    for (i = 0; i < len; i++)
+      listeners[i].apply(this, args);
+  }
+
+  return true;
+};
+
+EventEmitter.prototype.addListener = function(type, listener) {
+  var m;
+
+  if (!isFunction(listener))
+    throw TypeError('listener must be a function');
+
+  if (!this._events)
+    this._events = {};
+
+  // To avoid recursion in the case that type === "newListener"! Before
+  // adding it to the listeners, first emit "newListener".
+  if (this._events.newListener)
+    this.emit('newListener', type,
+              isFunction(listener.listener) ?
+              listener.listener : listener);
+
+  if (!this._events[type])
+    // Optimize the case of one listener. Don't need the extra array object.
+    this._events[type] = listener;
+  else if (isObject(this._events[type]))
+    // If we've already got an array, just append.
+    this._events[type].push(listener);
+  else
+    // Adding the second element, need to change to array.
+    this._events[type] = [this._events[type], listener];
+
+  // Check for listener leak
+  if (isObject(this._events[type]) && !this._events[type].warned) {
+    var m;
+    if (!isUndefined(this._maxListeners)) {
+      m = this._maxListeners;
+    } else {
+      m = EventEmitter.defaultMaxListeners;
+    }
+
+    if (m && m > 0 && this._events[type].length > m) {
+      this._events[type].warned = true;
+      console.error('(node) warning: possible EventEmitter memory ' +
+                    'leak detected. %d listeners added. ' +
+                    'Use emitter.setMaxListeners() to increase limit.',
+                    this._events[type].length);
+      if (typeof console.trace === 'function') {
+        // not supported in IE 10
+        console.trace();
+      }
+    }
+  }
+
+  return this;
+};
+
+EventEmitter.prototype.on = EventEmitter.prototype.addListener;
+
+EventEmitter.prototype.once = function(type, listener) {
+  if (!isFunction(listener))
+    throw TypeError('listener must be a function');
+
+  var fired = false;
+
+  function g() {
+    this.removeListener(type, g);
+
+    if (!fired) {
+      fired = true;
+      listener.apply(this, arguments);
+    }
+  }
+
+  g.listener = listener;
+  this.on(type, g);
+
+  return this;
+};
+
+// emits a 'removeListener' event iff the listener was removed
+EventEmitter.prototype.removeListener = function(type, listener) {
+  var list, position, length, i;
+
+  if (!isFunction(listener))
+    throw TypeError('listener must be a function');
+
+  if (!this._events || !this._events[type])
+    return this;
+
+  list = this._events[type];
+  length = list.length;
+  position = -1;
+
+  if (list === listener ||
+      (isFunction(list.listener) && list.listener === listener)) {
+    delete this._events[type];
+    if (this._events.removeListener)
+      this.emit('removeListener', type, listener);
+
+  } else if (isObject(list)) {
+    for (i = length; i-- > 0;) {
+      if (list[i] === listener ||
+          (list[i].listener && list[i].listener === listener)) {
+        position = i;
+        break;
+      }
+    }
+
+    if (position < 0)
+      return this;
+
+    if (list.length === 1) {
+      list.length = 0;
+      delete this._events[type];
+    } else {
+      list.splice(position, 1);
+    }
+
+    if (this._events.removeListener)
+      this.emit('removeListener', type, listener);
+  }
+
+  return this;
+};
+
+EventEmitter.prototype.removeAllListeners = function(type) {
+  var key, listeners;
+
+  if (!this._events)
+    return this;
+
+  // not listening for removeListener, no need to emit
+  if (!this._events.removeListener) {
+    if (arguments.length === 0)
+      this._events = {};
+    else if (this._events[type])
+      delete this._events[type];
+    return this;
+  }
+
+  // emit removeListener for all listeners on all events
+  if (arguments.length === 0) {
+    for (key in this._events) {
+      if (key === 'removeListener') continue;
+      this.removeAllListeners(key);
+    }
+    this.removeAllListeners('removeListener');
+    this._events = {};
+    return this;
+  }
+
+  listeners = this._events[type];
+
+  if (isFunction(listeners)) {
+    this.removeListener(type, listeners);
+  } else {
+    // LIFO order
+    while (listeners.length)
+      this.removeListener(type, listeners[listeners.length - 1]);
+  }
+  delete this._events[type];
+
+  return this;
+};
+
+EventEmitter.prototype.listeners = function(type) {
+  var ret;
+  if (!this._events || !this._events[type])
+    ret = [];
+  else if (isFunction(this._events[type]))
+    ret = [this._events[type]];
+  else
+    ret = this._events[type].slice();
+  return ret;
+};
+
+EventEmitter.listenerCount = function(emitter, type) {
+  var ret;
+  if (!emitter._events || !emitter._events[type])
+    ret = 0;
+  else if (isFunction(emitter._events[type]))
+    ret = 1;
+  else
+    ret = emitter._events[type].length;
+  return ret;
+};
+
+function isFunction(arg) {
+  return typeof arg === 'function';
+}
+
+function isNumber(arg) {
+  return typeof arg === 'number';
+}
+
+function isObject(arg) {
+  return typeof arg === 'object' && arg !== null;
+}
+
+function isUndefined(arg) {
+  return arg === void 0;
+}
+
+},{}],5:[function(require,module,exports){
+if (typeof Object.create === 'function') {
+  // implementation from standard node.js 'util' module
+  module.exports = function inherits(ctor, superCtor) {
+    ctor.super_ = superCtor
+    ctor.prototype = Object.create(superCtor.prototype, {
+      constructor: {
+        value: ctor,
+        enumerable: false,
+        writable: true,
+        configurable: true
+      }
+    });
+  };
+} else {
+  // old school shim for old browsers
+  module.exports = function inherits(ctor, superCtor) {
+    ctor.super_ = superCtor
+    var TempCtor = function () {}
+    TempCtor.prototype = superCtor.prototype
+    ctor.prototype = new TempCtor()
+    ctor.prototype.constructor = ctor
+  }
+}
+
+},{}],6:[function(require,module,exports){
+// shim for using process in browser
+
+var process = module.exports = {};
+
+process.nextTick = (function () {
+    var canSetImmediate = typeof window !== 'undefined'
+    && window.setImmediate;
+    var canPost = typeof window !== 'undefined'
+    && window.postMessage && window.addEventListener
+    ;
+
+    if (canSetImmediate) {
+        return function (f) { return window.setImmediate(f) };
+    }
+
+    if (canPost) {
+        var queue = [];
+        window.addEventListener('message', function (ev) {
+            var source = ev.source;
+            if ((source === window || source === null) && ev.data === 'process-tick') {
+                ev.stopPropagation();
+                if (queue.length > 0) {
+                    var fn = queue.shift();
+                    fn();
+                }
+            }
+        }, true);
+
+        return function nextTick(fn) {
+            queue.push(fn);
+            window.postMessage('process-tick', '*');
+        };
+    }
+
+    return function nextTick(fn) {
+        setTimeout(fn, 0);
+    };
+})();
+
+process.title = 'browser';
+process.browser = true;
+process.env = {};
+process.argv = [];
+
+function noop() {}
+
+process.on = noop;
+process.addListener = noop;
+process.once = noop;
+process.off = noop;
+process.removeListener = noop;
+process.removeAllListeners = noop;
+process.emit = noop;
+
+process.binding = function (name) {
+    throw new Error('process.binding is not supported');
+}
+
+// TODO(shtylman)
+process.cwd = function () { return '/' };
+process.chdir = function (dir) {
+    throw new Error('process.chdir is not supported');
+};
+
+},{}],7:[function(require,module,exports){
+module.exports = function isBuffer(arg) {
+  return arg && typeof arg === 'object'
+    && typeof arg.copy === 'function'
+    && typeof arg.fill === 'function'
+    && typeof arg.readUInt8 === 'function';
+}
+},{}],8:[function(require,module,exports){
+(function (process,global){
+// Copyright Joyent, Inc. and other Node contributors.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to permit
+// persons to whom the Software is furnished to do so, subject to the
+// following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+// USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+var formatRegExp = /%[sdj%]/g;
+exports.format = function(f) {
+  if (!isString(f)) {
+    var objects = [];
+    for (var i = 0; i < arguments.length; i++) {
+      objects.push(inspect(arguments[i]));
+    }
+    return objects.join(' ');
+  }
+
+  var i = 1;
+  var args = arguments;
+  var len = args.length;
+  var str = String(f).replace(formatRegExp, function(x) {
+    if (x === '%%') return '%';
+    if (i >= len) return x;
+    switch (x) {
+      case '%s': return String(args[i++]);
+      case '%d': return Number(args[i++]);
+      case '%j':
+        try {
+          return JSON.stringify(args[i++]);
+        } catch (_) {
+          return '[Circular]';
+        }
+      default:
+        return x;
+    }
+  });
+  for (var x = args[i]; i < len; x = args[++i]) {
+    if (isNull(x) || !isObject(x)) {
+      str += ' ' + x;
+    } else {
+      str += ' ' + inspect(x);
+    }
+  }
+  return str;
+};
+
+
+// Mark that a method should not be used.
+// Returns a modified function which warns once by default.
+// If --no-deprecation is set, then it is a no-op.
+exports.deprecate = function(fn, msg) {
+  // Allow for deprecating things in the process of starting up.
+  if (isUndefined(global.process)) {
+    return function() {
+      return exports.deprecate(fn, msg).apply(this, arguments);
+    };
+  }
+
+  if (process.noDeprecation === true) {
+    return fn;
+  }
+
+  var warned = false;
+  function deprecated() {
+    if (!warned) {
+      if (process.throwDeprecation) {
+        throw new Error(msg);
+      } else if (process.traceDeprecation) {
+        console.trace(msg);
+      } else {
+        console.error(msg);
+      }
+      warned = true;
+    }
+    return fn.apply(this, arguments);
+  }
+
+  return deprecated;
+};
+
+
+var debugs = {};
+var debugEnviron;
+exports.debuglog = function(set) {
+  if (isUndefined(debugEnviron))
+    debugEnviron = process.env.NODE_DEBUG || '';
+  set = set.toUpperCase();
+  if (!debugs[set]) {
+    if (new RegExp('\\b' + set + '\\b', 'i').test(debugEnviron)) {
+      var pid = process.pid;
+      debugs[set] = function() {
+        var msg = exports.format.apply(exports, arguments);
+        console.error('%s %d: %s', set, pid, msg);
+      };
+    } else {
+      debugs[set] = function() {};
+    }
+  }
+  return debugs[set];
+};
+
+
+/**
+ * Echos the value of a value. Trys to print the value out
+ * in the best way possible given the different types.
+ *
+ * @param {Object} obj The object to print out.
+ * @param {Object} opts Optional options object that alters the output.
+ */
+/* legacy: obj, showHidden, depth, colors*/
+function inspect(obj, opts) {
+  // default options
+  var ctx = {
+    seen: [],
+    stylize: stylizeNoColor
+  };
+  // legacy...
+  if (arguments.length >= 3) ctx.depth = arguments[2];
+  if (arguments.length >= 4) ctx.colors = arguments[3];
+  if (isBoolean(opts)) {
+    // legacy...
+    ctx.showHidden = opts;
+  } else if (opts) {
+    // got an "options" object
+    exports._extend(ctx, opts);
+  }
+  // set default options
+  if (isUndefined(ctx.showHidden)) ctx.showHidden = false;
+  if (isUndefined(ctx.depth)) ctx.depth = 2;
+  if (isUndefined(ctx.colors)) ctx.colors = false;
+  if (isUndefined(ctx.customInspect)) ctx.customInspect = true;
+  if (ctx.colors) ctx.stylize = stylizeWithColor;
+  return formatValue(ctx, obj, ctx.depth);
+}
+exports.inspect = inspect;
+
+
+// http://en.wikipedia.org/wiki/ANSI_escape_code#graphics
+inspect.colors = {
+  'bold' : [1, 22],
+  'italic' : [3, 23],
+  'underline' : [4, 24],
+  'inverse' : [7, 27],
+  'white' : [37, 39],
+  'grey' : [90, 39],
+  'black' : [30, 39],
+  'blue' : [34, 39],
+  'cyan' : [36, 39],
+  'green' : [32, 39],
+  'magenta' : [35, 39],
+  'red' : [31, 39],
+  'yellow' : [33, 39]
+};
+
+// Don't use 'blue' not visible on cmd.exe
+inspect.styles = {
+  'special': 'cyan',
+  'number': 'yellow',
+  'boolean': 'yellow',
+  'undefined': 'grey',
+  'null': 'bold',
+  'string': 'green',
+  'date': 'magenta',
+  // "name": intentionally not styling
+  'regexp': 'red'
+};
+
+
+function stylizeWithColor(str, styleType) {
+  var style = inspect.styles[styleType];
+
+  if (style) {
+    return '\u001b[' + inspect.colors[style][0] + 'm' + str +
+           '\u001b[' + inspect.colors[style][1] + 'm';
+  } else {
+    return str;
+  }
+}
+
+
+function stylizeNoColor(str, styleType) {
+  return str;
+}
+
+
+function arrayToHash(array) {
+  var hash = {};
+
+  array.forEach(function(val, idx) {
+    hash[val] = true;
+  });
+
+  return hash;
+}
+
+
+function formatValue(ctx, value, recurseTimes) {
+  // Provide a hook for user-specified inspect functions.
+  // Check that value is an object with an inspect function on it
+  if (ctx.customInspect &&
+      value &&
+      isFunction(value.inspect) &&
+      // Filter out the util module, it's inspect function is special
+      value.inspect !== exports.inspect &&
+      // Also filter out any prototype objects using the circular check.
+      !(value.constructor && value.constructor.prototype === value)) {
+    var ret = value.inspect(recurseTimes, ctx);
+    if (!isString(ret)) {
+      ret = formatValue(ctx, ret, recurseTimes);
+    }
+    return ret;
+  }
+
+  // Primitive types cannot have properties
+  var primitive = formatPrimitive(ctx, value);
+  if (primitive) {
+    return primitive;
+  }
+
+  // Look up the keys of the object.
+  var keys = Object.keys(value);
+  var visibleKeys = arrayToHash(keys);
+
+  if (ctx.showHidden) {
+    keys = Object.getOwnPropertyNames(value);
+  }
+
+  // IE doesn't make error fields non-enumerable
+  // http://msdn.microsoft.com/en-us/library/ie/dww52sbt(v=vs.94).aspx
+  if (isError(value)
+      && (keys.indexOf('message') >= 0 || keys.indexOf('description') >= 0)) {
+    return formatError(value);
+  }
+
+  // Some type of object without properties can be shortcutted.
+  if (keys.length === 0) {
+    if (isFunction(value)) {
+      var name = value.name ? ': ' + value.name : '';
+      return ctx.stylize('[Function' + name + ']', 'special');
+    }
+    if (isRegExp(value)) {
+      return ctx.stylize(RegExp.prototype.toString.call(value), 'regexp');
+    }
+    if (isDate(value)) {
+      return ctx.stylize(Date.prototype.toString.call(value), 'date');
+    }
+    if (isError(value)) {
+      return formatError(value);
+    }
+  }
+
+  var base = '', array = false, braces = ['{', '}'];
+
+  // Make Array say that they are Array
+  if (isArray(value)) {
+    array = true;
+    braces = ['[', ']'];
+  }
+
+  // Make functions say that they are functions
+  if (isFunction(value)) {
+    var n = value.name ? ': ' + value.name : '';
+    base = ' [Function' + n + ']';
+  }
+
+  // Make RegExps say that they are RegExps
+  if (isRegExp(value)) {
+    base = ' ' + RegExp.prototype.toString.call(value);
+  }
+
+  // Make dates with properties first say the date
+  if (isDate(value)) {
+    base = ' ' + Date.prototype.toUTCString.call(value);
+  }
+
+  // Make error with message first say the error
+  if (isError(value)) {
+    base = ' ' + formatError(value);
+  }
+
+  if (keys.length === 0 && (!array || value.length == 0)) {
+    return braces[0] + base + braces[1];
+  }
+
+  if (recurseTimes < 0) {
+    if (isRegExp(value)) {
+      return ctx.stylize(RegExp.prototype.toString.call(value), 'regexp');
+    } else {
+      return ctx.stylize('[Object]', 'special');
+    }
+  }
+
+  ctx.seen.push(value);
+
+  var output;
+  if (array) {
+    output = formatArray(ctx, value, recurseTimes, visibleKeys, keys);
+  } else {
+    output = keys.map(function(key) {
+      return formatProperty(ctx, value, recurseTimes, visibleKeys, key, array);
+    });
+  }
+
+  ctx.seen.pop();
+
+  return reduceToSingleString(output, base, braces);
+}
+
+
+function formatPrimitive(ctx, value) {
+  if (isUndefined(value))
+    return ctx.stylize('undefined', 'undefined');
+  if (isString(value)) {
+    var simple = '\'' + JSON.stringify(value).replace(/^"|"$/g, '')
+                                             .replace(/'/g, "\\'")
+                                             .replace(/\\"/g, '"') + '\'';
+    return ctx.stylize(simple, 'string');
+  }
+  if (isNumber(value))
+    return ctx.stylize('' + value, 'number');
+  if (isBoolean(value))
+    return ctx.stylize('' + value, 'boolean');
+  // For some reason typeof null is "object", so special case here.
+  if (isNull(value))
+    return ctx.stylize('null', 'null');
+}
+
+
+function formatError(value) {
+  return '[' + Error.prototype.toString.call(value) + ']';
+}
+
+
+function formatArray(ctx, value, recurseTimes, visibleKeys, keys) {
+  var output = [];
+  for (var i = 0, l = value.length; i < l; ++i) {
+    if (hasOwnProperty(value, String(i))) {
+      output.push(formatProperty(ctx, value, recurseTimes, visibleKeys,
+          String(i), true));
+    } else {
+      output.push('');
+    }
+  }
+  keys.forEach(function(key) {
+    if (!key.match(/^\d+$/)) {
+      output.push(formatProperty(ctx, value, recurseTimes, visibleKeys,
+          key, true));
+    }
+  });
+  return output;
+}
+
+
+function formatProperty(ctx, value, recurseTimes, visibleKeys, key, array) {
+  var name, str, desc;
+  desc = Object.getOwnPropertyDescriptor(value, key) || { value: value[key] };
+  if (desc.get) {
+    if (desc.set) {
+      str = ctx.stylize('[Getter/Setter]', 'special');
+    } else {
+      str = ctx.stylize('[Getter]', 'special');
+    }
+  } else {
+    if (desc.set) {
+      str = ctx.stylize('[Setter]', 'special');
+    }
+  }
+  if (!hasOwnProperty(visibleKeys, key)) {
+    name = '[' + key + ']';
+  }
+  if (!str) {
+    if (ctx.seen.indexOf(desc.value) < 0) {
+      if (isNull(recurseTimes)) {
+        str = formatValue(ctx, desc.value, null);
+      } else {
+        str = formatValue(ctx, desc.value, recurseTimes - 1);
+      }
+      if (str.indexOf('\n') > -1) {
+        if (array) {
+          str = str.split('\n').map(function(line) {
+            return '  ' + line;
+          }).join('\n').substr(2);
+        } else {
+          str = '\n' + str.split('\n').map(function(line) {
+            return '   ' + line;
+          }).join('\n');
+        }
+      }
+    } else {
+      str = ctx.stylize('[Circular]', 'special');
+    }
+  }
+  if (isUndefined(name)) {
+    if (array && key.match(/^\d+$/)) {
+      return str;
+    }
+    name = JSON.stringify('' + key);
+    if (name.match(/^"([a-zA-Z_][a-zA-Z_0-9]*)"$/)) {
+      name = name.substr(1, name.length - 2);
+      name = ctx.stylize(name, 'name');
+    } else {
+      name = name.replace(/'/g, "\\'")
+                 .replace(/\\"/g, '"')
+                 .replace(/(^"|"$)/g, "'");
+      name = ctx.stylize(name, 'string');
+    }
+  }
+
+  return name + ': ' + str;
+}
+
+
+function reduceToSingleString(output, base, braces) {
+  var numLinesEst = 0;
+  var length = output.reduce(function(prev, cur) {
+    numLinesEst++;
+    if (cur.indexOf('\n') >= 0) numLinesEst++;
+    return prev + cur.replace(/\u001b\[\d\d?m/g, '').length + 1;
+  }, 0);
+
+  if (length > 60) {
+    return braces[0] +
+           (base === '' ? '' : base + '\n ') +
+           ' ' +
+           output.join(',\n  ') +
+           ' ' +
+           braces[1];
+  }
+
+  return braces[0] + base + ' ' + output.join(', ') + ' ' + braces[1];
+}
+
+
+// NOTE: These type checking functions intentionally don't use `instanceof`
+// because it is fragile and can be easily faked with `Object.create()`.
+function isArray(ar) {
+  return Array.isArray(ar);
+}
+exports.isArray = isArray;
+
+function isBoolean(arg) {
+  return typeof arg === 'boolean';
+}
+exports.isBoolean = isBoolean;
+
+function isNull(arg) {
+  return arg === null;
+}
+exports.isNull = isNull;
+
+function isNullOrUndefined(arg) {
+  return arg == null;
+}
+exports.isNullOrUndefined = isNullOrUndefined;
+
+function isNumber(arg) {
+  return typeof arg === 'number';
+}
+exports.isNumber = isNumber;
+
+function isString(arg) {
+  return typeof arg === 'string';
+}
+exports.isString = isString;
+
+function isSymbol(arg) {
+  return typeof arg === 'symbol';
+}
+exports.isSymbol = isSymbol;
+
+function isUndefined(arg) {
+  return arg === void 0;
+}
+exports.isUndefined = isUndefined;
+
+function isRegExp(re) {
+  return isObject(re) && objectToString(re) === '[object RegExp]';
+}
+exports.isRegExp = isRegExp;
+
+function isObject(arg) {
+  return typeof arg === 'object' && arg !== null;
+}
+exports.isObject = isObject;
+
+function isDate(d) {
+  return isObject(d) && objectToString(d) === '[object Date]';
+}
+exports.isDate = isDate;
+
+function isError(e) {
+  return isObject(e) &&
+      (objectToString(e) === '[object Error]' || e instanceof Error);
+}
+exports.isError = isError;
+
+function isFunction(arg) {
+  return typeof arg === 'function';
+}
+exports.isFunction = isFunction;
+
+function isPrimitive(arg) {
+  return arg === null ||
+         typeof arg === 'boolean' ||
+         typeof arg === 'number' ||
+         typeof arg === 'string' ||
+         typeof arg === 'symbol' ||  // ES6 symbol
+         typeof arg === 'undefined';
+}
+exports.isPrimitive = isPrimitive;
+
+exports.isBuffer = require('./support/isBuffer');
+
+function objectToString(o) {
+  return Object.prototype.toString.call(o);
+}
+
+
+function pad(n) {
+  return n < 10 ? '0' + n.toString(10) : n.toString(10);
+}
+
+
+var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep',
+              'Oct', 'Nov', 'Dec'];
+
+// 26 Feb 16:19:34
+function timestamp() {
+  var d = new Date();
+  var time = [pad(d.getHours()),
+              pad(d.getMinutes()),
+              pad(d.getSeconds())].join(':');
+  return [d.getDate(), months[d.getMonth()], time].join(' ');
+}
+
+
+// log is just a thin wrapper to console.log that prepends a timestamp
+exports.log = function() {
+  console.log('%s - %s', timestamp(), exports.format.apply(exports, arguments));
+};
+
+
+/**
+ * Inherit the prototype methods from one constructor into another.
+ *
+ * The Function.prototype.inherits from lang.js rewritten as a standalone
+ * function (not on Function.prototype). NOTE: If this file is to be loaded
+ * during bootstrapping this function needs to be rewritten using some native
+ * functions as prototype setup using normal JavaScript does not work as
+ * expected during bootstrapping (see mirror.js in r114903).
+ *
+ * @param {function} ctor Constructor function which needs to inherit the
+ *     prototype.
+ * @param {function} superCtor Constructor function to inherit prototype from.
+ */
+exports.inherits = require('inherits');
+
+exports._extend = function(origin, add) {
+  // Don't do anything if add isn't an object
+  if (!add || !isObject(add)) return origin;
+
+  var keys = Object.keys(add);
+  var i = keys.length;
+  while (i--) {
+    origin[keys[i]] = add[keys[i]];
+  }
+  return origin;
+};
+
+function hasOwnProperty(obj, prop) {
+  return Object.prototype.hasOwnProperty.call(obj, prop);
+}
+
+}).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"./support/isBuffer":7,"_process":6,"inherits":5}],9:[function(require,module,exports){
 /**
  *  Copyright (c) 2014, Facebook, Inc.
  *  All rights reserved.
@@ -4085,408 +5280,258 @@ typeof exports === 'object' ? module.exports = universalModule() :
   typeof define === 'function' && define.amd ? define(universalModule) :
     Immutable = universalModule();
 
-},{}],6:[function(require,module,exports){
-// Copyright Joyent, Inc. and other Node contributors.
-//
-// Permission is hereby granted, free of charge, to any person obtaining a
-// copy of this software and associated documentation files (the
-// "Software"), to deal in the Software without restriction, including
-// without limitation the rights to use, copy, modify, merge, publish,
-// distribute, sublicense, and/or sell copies of the Software, and to permit
-// persons to whom the Software is furnished to do so, subject to the
-// following conditions:
-//
-// The above copyright notice and this permission notice shall be included
-// in all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
-// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
-// USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-function EventEmitter() {
-  this._events = this._events || {};
-  this._maxListeners = this._maxListeners || undefined;
-}
-module.exports = EventEmitter;
-
-// Backwards-compat with node 0.10.x
-EventEmitter.EventEmitter = EventEmitter;
-
-EventEmitter.prototype._events = undefined;
-EventEmitter.prototype._maxListeners = undefined;
-
-// By default EventEmitters will print a warning if more than 10 listeners are
-// added to it. This is a useful default which helps finding memory leaks.
-EventEmitter.defaultMaxListeners = 10;
-
-// Obviously not all Emitters should be limited to 10. This function allows
-// that to be increased. Set to zero for unlimited.
-EventEmitter.prototype.setMaxListeners = function(n) {
-  if (!isNumber(n) || n < 0 || isNaN(n))
-    throw TypeError('n must be a positive number');
-  this._maxListeners = n;
-  return this;
-};
-
-EventEmitter.prototype.emit = function(type) {
-  var er, handler, len, args, i, listeners;
-
-  if (!this._events)
-    this._events = {};
-
-  // If there is no 'error' event listener then throw.
-  if (type === 'error') {
-    if (!this._events.error ||
-        (isObject(this._events.error) && !this._events.error.length)) {
-      er = arguments[1];
-      if (er instanceof Error) {
-        throw er; // Unhandled 'error' event
-      }
-      throw TypeError('Uncaught, unspecified "error" event.');
-    }
-  }
-
-  handler = this._events[type];
-
-  if (isUndefined(handler))
-    return false;
-
-  if (isFunction(handler)) {
-    switch (arguments.length) {
-      // fast cases
-      case 1:
-        handler.call(this);
-        break;
-      case 2:
-        handler.call(this, arguments[1]);
-        break;
-      case 3:
-        handler.call(this, arguments[1], arguments[2]);
-        break;
-      // slower
-      default:
-        len = arguments.length;
-        args = new Array(len - 1);
-        for (i = 1; i < len; i++)
-          args[i - 1] = arguments[i];
-        handler.apply(this, args);
-    }
-  } else if (isObject(handler)) {
-    len = arguments.length;
-    args = new Array(len - 1);
-    for (i = 1; i < len; i++)
-      args[i - 1] = arguments[i];
-
-    listeners = handler.slice();
-    len = listeners.length;
-    for (i = 0; i < len; i++)
-      listeners[i].apply(this, args);
-  }
-
-  return true;
-};
-
-EventEmitter.prototype.addListener = function(type, listener) {
-  var m;
-
-  if (!isFunction(listener))
-    throw TypeError('listener must be a function');
-
-  if (!this._events)
-    this._events = {};
-
-  // To avoid recursion in the case that type === "newListener"! Before
-  // adding it to the listeners, first emit "newListener".
-  if (this._events.newListener)
-    this.emit('newListener', type,
-              isFunction(listener.listener) ?
-              listener.listener : listener);
-
-  if (!this._events[type])
-    // Optimize the case of one listener. Don't need the extra array object.
-    this._events[type] = listener;
-  else if (isObject(this._events[type]))
-    // If we've already got an array, just append.
-    this._events[type].push(listener);
-  else
-    // Adding the second element, need to change to array.
-    this._events[type] = [this._events[type], listener];
-
-  // Check for listener leak
-  if (isObject(this._events[type]) && !this._events[type].warned) {
-    var m;
-    if (!isUndefined(this._maxListeners)) {
-      m = this._maxListeners;
-    } else {
-      m = EventEmitter.defaultMaxListeners;
-    }
-
-    if (m && m > 0 && this._events[type].length > m) {
-      this._events[type].warned = true;
-      console.error('(node) warning: possible EventEmitter memory ' +
-                    'leak detected. %d listeners added. ' +
-                    'Use emitter.setMaxListeners() to increase limit.',
-                    this._events[type].length);
-      if (typeof console.trace === 'function') {
-        // not supported in IE 10
-        console.trace();
-      }
-    }
-  }
-
-  return this;
-};
-
-EventEmitter.prototype.on = EventEmitter.prototype.addListener;
-
-EventEmitter.prototype.once = function(type, listener) {
-  if (!isFunction(listener))
-    throw TypeError('listener must be a function');
-
-  var fired = false;
-
-  function g() {
-    this.removeListener(type, g);
-
-    if (!fired) {
-      fired = true;
-      listener.apply(this, arguments);
-    }
-  }
-
-  g.listener = listener;
-  this.on(type, g);
-
-  return this;
-};
-
-// emits a 'removeListener' event iff the listener was removed
-EventEmitter.prototype.removeListener = function(type, listener) {
-  var list, position, length, i;
-
-  if (!isFunction(listener))
-    throw TypeError('listener must be a function');
-
-  if (!this._events || !this._events[type])
-    return this;
-
-  list = this._events[type];
-  length = list.length;
-  position = -1;
-
-  if (list === listener ||
-      (isFunction(list.listener) && list.listener === listener)) {
-    delete this._events[type];
-    if (this._events.removeListener)
-      this.emit('removeListener', type, listener);
-
-  } else if (isObject(list)) {
-    for (i = length; i-- > 0;) {
-      if (list[i] === listener ||
-          (list[i].listener && list[i].listener === listener)) {
-        position = i;
-        break;
-      }
-    }
-
-    if (position < 0)
-      return this;
-
-    if (list.length === 1) {
-      list.length = 0;
-      delete this._events[type];
-    } else {
-      list.splice(position, 1);
-    }
-
-    if (this._events.removeListener)
-      this.emit('removeListener', type, listener);
-  }
-
-  return this;
-};
-
-EventEmitter.prototype.removeAllListeners = function(type) {
-  var key, listeners;
-
-  if (!this._events)
-    return this;
-
-  // not listening for removeListener, no need to emit
-  if (!this._events.removeListener) {
-    if (arguments.length === 0)
-      this._events = {};
-    else if (this._events[type])
-      delete this._events[type];
-    return this;
-  }
-
-  // emit removeListener for all listeners on all events
-  if (arguments.length === 0) {
-    for (key in this._events) {
-      if (key === 'removeListener') continue;
-      this.removeAllListeners(key);
-    }
-    this.removeAllListeners('removeListener');
-    this._events = {};
-    return this;
-  }
-
-  listeners = this._events[type];
-
-  if (isFunction(listeners)) {
-    this.removeListener(type, listeners);
-  } else {
-    // LIFO order
-    while (listeners.length)
-      this.removeListener(type, listeners[listeners.length - 1]);
-  }
-  delete this._events[type];
-
-  return this;
-};
-
-EventEmitter.prototype.listeners = function(type) {
-  var ret;
-  if (!this._events || !this._events[type])
-    ret = [];
-  else if (isFunction(this._events[type]))
-    ret = [this._events[type]];
-  else
-    ret = this._events[type].slice();
-  return ret;
-};
-
-EventEmitter.listenerCount = function(emitter, type) {
-  var ret;
-  if (!emitter._events || !emitter._events[type])
-    ret = 0;
-  else if (isFunction(emitter._events[type]))
-    ret = 1;
-  else
-    ret = emitter._events[type].length;
-  return ret;
-};
-
-function isFunction(arg) {
-  return typeof arg === 'function';
-}
-
-function isNumber(arg) {
-  return typeof arg === 'number';
-}
-
-function isObject(arg) {
-  return typeof arg === 'object' && arg !== null;
-}
-
-function isUndefined(arg) {
-  return arg === void 0;
-}
-
-},{}],7:[function(require,module,exports){
-if (typeof Object.create === 'function') {
-  // implementation from standard node.js 'util' module
-  module.exports = function inherits(ctor, superCtor) {
-    ctor.super_ = superCtor
-    ctor.prototype = Object.create(superCtor.prototype, {
-      constructor: {
-        value: ctor,
-        enumerable: false,
-        writable: true,
-        configurable: true
-      }
-    });
-  };
-} else {
-  // old school shim for old browsers
-  module.exports = function inherits(ctor, superCtor) {
-    ctor.super_ = superCtor
-    var TempCtor = function () {}
-    TempCtor.prototype = superCtor.prototype
-    ctor.prototype = new TempCtor()
-    ctor.prototype.constructor = ctor
-  }
-}
-
-},{}],8:[function(require,module,exports){
-// shim for using process in browser
-
-var process = module.exports = {};
-
-process.nextTick = (function () {
-    var canSetImmediate = typeof window !== 'undefined'
-    && window.setImmediate;
-    var canPost = typeof window !== 'undefined'
-    && window.postMessage && window.addEventListener
-    ;
-
-    if (canSetImmediate) {
-        return function (f) { return window.setImmediate(f) };
-    }
-
-    if (canPost) {
-        var queue = [];
-        window.addEventListener('message', function (ev) {
-            var source = ev.source;
-            if ((source === window || source === null) && ev.data === 'process-tick') {
-                ev.stopPropagation();
-                if (queue.length > 0) {
-                    var fn = queue.shift();
-                    fn();
-                }
-            }
-        }, true);
-
-        return function nextTick(fn) {
-            queue.push(fn);
-            window.postMessage('process-tick', '*');
-        };
-    }
-
-    return function nextTick(fn) {
-        setTimeout(fn, 0);
-    };
-})();
-
-process.title = 'browser';
-process.browser = true;
-process.env = {};
-process.argv = [];
-
-function noop() {}
-
-process.on = noop;
-process.addListener = noop;
-process.once = noop;
-process.off = noop;
-process.removeListener = noop;
-process.removeAllListeners = noop;
-process.emit = noop;
-
-process.binding = function (name) {
-    throw new Error('process.binding is not supported');
-}
-
-// TODO(shtylman)
-process.cwd = function () { return '/' };
-process.chdir = function (dir) {
-    throw new Error('process.chdir is not supported');
-};
-
-},{}],9:[function(require,module,exports){
-module.exports = function isBuffer(arg) {
-  return arg && typeof arg === 'object'
-    && typeof arg.copy === 'function'
-    && typeof arg.fill === 'function'
-    && typeof arg.readUInt8 === 'function';
-}
 },{}],10:[function(require,module,exports){
-(function (process,global){
+// Copyright (c) 2014 Patrick Dubroy <pdubroy@gmail.com>
+// This software is distributed under the terms of the MIT License.
+
+/* global -WeakMap */
+
+var extend = require('util-extend'),
+    WeakMap = require('./third_party/WeakMap');
+
+// An internal object that can be returned from a visitor function to
+// prevent a top-down walk from walking subtrees of a node.
+var stopRecursion = {};
+
+// An internal object that can be returned from a visitor function to
+// cause the walk to immediately stop.
+var stopWalk = {};
+
+var hasOwnProp = Object.prototype.hasOwnProperty;
+
+// Helpers
+// -------
+
+function isElement(obj) {
+  return !!(obj && obj.nodeType === 1);
+}
+
+function isObject(obj) {
+  var type = typeof obj;
+  return type === 'function' || type === 'object' && !!obj;
+}
+
+function each(obj, predicate) {
+  for (var k in obj) {
+    if (obj.hasOwnProperty(k)) {
+      if (predicate(obj[k], k, obj))
+        return false;
+    }
+  }
+  return true;
+}
+
+// Makes a shallow copy of `arr`, and adds `obj` to the end of the copy.
+function copyAndPush(arr, obj) {
+  var result = arr.slice();
+  result.push(obj);
+  return result;
+}
+
+// Implements the default traversal strategy: if `obj` is a DOM node, walk
+// its DOM children; otherwise, walk all the objects it references.
+function defaultTraversal(obj) {
+  return isElement(obj) ? obj.children : obj;
+}
+
+// Walk the tree recursively beginning with `root`, calling `beforeFunc`
+// before visiting an objects descendents, and `afterFunc` afterwards.
+// If `collectResults` is true, the last argument to `afterFunc` will be a
+// collection of the results of walking the node's subtrees.
+function walkImpl(root, traversalStrategy, beforeFunc, afterFunc, context, collectResults) {
+  return (function _walk(stack, value, key, parent) {
+    if (isObject(value) && stack.indexOf(value) >= 0)
+      throw new TypeError('A cycle was detected at ' + value);
+
+    if (beforeFunc) {
+      var result = beforeFunc.call(context, value, key, parent);
+      if (result === stopWalk) return stopWalk;
+      if (result === stopRecursion) return;
+    }
+
+    var subResults;
+    var target = traversalStrategy(value);
+
+    if (isObject(target) && Object.keys(target).length > 0) {
+      // Collect results from subtrees in the same shape as the target.
+      if (collectResults) subResults = Array.isArray(target) ? [] : {};
+
+      var ok = each(target, function(obj, key) {
+        var result = _walk(copyAndPush(stack, value), obj, key, value);
+        if (result === stopWalk) return false;
+        if (subResults) subResults[key] = result;
+      });
+      if (!ok) return stopWalk;
+    }
+    if (afterFunc) return afterFunc.call(context, value, key, parent, subResults);
+  })([], root);
+}
+
+// Internal helper providing the implementation for `pluck` and `pluckRec`.
+function pluck(obj, propertyName, recursive) {
+  var results = [];
+  this.preorder(obj, function(value, key) {
+    if (!recursive && key == propertyName)
+      return stopRecursion;
+    if (hasOwnProp.call(value, propertyName))
+      results[results.length] = value[propertyName];
+  });
+  return results;
+}
+
+function defineEnumerableProperty(obj, propName, getterFn) {
+  Object.defineProperty(obj, propName, {
+    enumerable: true,
+    get: getterFn
+  });
+}
+
+// Returns an object containing the walk functions. If `traversalStrategy`
+// is specified, it is a function determining how objects should be
+// traversed. Given an object, it returns the object to be recursively
+// walked. The default strategy is equivalent to `_.identity` for regular
+// objects, and for DOM nodes it returns the node's DOM children.
+function Walker(traversalStrategy) {
+  if (!(this instanceof Walker))
+    return new Walker(traversalStrategy);
+  this._traversalStrategy = traversalStrategy || defaultTraversal;
+}
+
+extend(Walker.prototype, {
+  // Performs a preorder traversal of `obj` and returns the first value
+  // which passes a truth test.
+  find: function(obj, visitor, context) {
+    var result;
+    this.preorder(obj, function(value, key, parent) {
+      if (visitor.call(context, value, key, parent)) {
+        result = value;
+        return stopWalk;
+      }
+    }, context);
+    return result;
+  },
+
+  // Recursively traverses `obj` and returns all the elements that pass a
+  // truth test. `strategy` is the traversal function to use, e.g. `preorder`
+  // or `postorder`.
+  filter: function(obj, strategy, visitor, context) {
+    var results = [];
+    if (obj === null) return results;
+    strategy(obj, function(value, key, parent) {
+      if (visitor.call(context, value, key, parent)) results.push(value);
+    }, null, this._traversalStrategy);
+    return results;
+  },
+
+  // Recursively traverses `obj` and returns all the elements for which a
+  // truth test fails.
+  reject: function(obj, strategy, visitor, context) {
+    return this.filter(obj, strategy, function(value, key, parent) {
+      return !visitor.call(context, value, key, parent);
+    });
+  },
+
+  // Produces a new array of values by recursively traversing `obj` and
+  // mapping each value through the transformation function `visitor`.
+  // `strategy` is the traversal function to use, e.g. `preorder` or
+  // `postorder`.
+  map: function(obj, strategy, visitor, context) {
+    var results = [];
+    strategy(obj, function(value, key, parent) {
+      results[results.length] = visitor.call(context, value, key, parent);
+    }, null, this._traversalStrategy);
+    return results;
+  },
+
+  // Return the value of properties named `propertyName` reachable from the
+  // tree rooted at `obj`. Results are not recursively searched; use
+  // `pluckRec` for that.
+  pluck: function(obj, propertyName) {
+    return pluck.call(this, obj, propertyName, false);
+  },
+
+  // Version of `pluck` which recursively searches results for nested objects
+  // with a property named `propertyName`.
+  pluckRec: function(obj, propertyName) {
+    return pluck.call(this, obj, propertyName, true);
+  },
+
+  // Recursively traverses `obj` in a depth-first fashion, invoking the
+  // `visitor` function for each object only after traversing its children.
+  // `traversalStrategy` is intended for internal callers, and is not part
+  // of the public API.
+  postorder: function(obj, visitor, context, traversalStrategy) {
+    traversalStrategy = traversalStrategy || this._traversalStrategy;
+    walkImpl(obj, traversalStrategy, null, visitor, context);
+  },
+
+  // Recursively traverses `obj` in a depth-first fashion, invoking the
+  // `visitor` function for each object before traversing its children.
+  // `traversalStrategy` is intended for internal callers, and is not part
+  // of the public API.
+  preorder: function(obj, visitor, context, traversalStrategy) {
+    traversalStrategy = traversalStrategy || this._traversalStrategy;
+    walkImpl(obj, traversalStrategy, visitor, null, context);
+  },
+
+  // Builds up a single value by doing a post-order traversal of `obj` and
+  // calling the `visitor` function on each object in the tree. For leaf
+  // objects, the `memo` argument to `visitor` is the value of the `leafMemo`
+  // argument to `reduce`. For non-leaf objects, `memo` is a collection of
+  // the results of calling `reduce` on the object's children.
+  reduce: function(obj, visitor, leafMemo, context) {
+    var reducer = function(value, key, parent, subResults) {
+      return visitor(subResults || leafMemo, value, key, parent);
+    };
+    return walkImpl(obj, this._traversalStrategy, null, reducer, context, true);
+  },
+
+  // An 'attribute' is a value that is calculated by invoking a visitor
+  // function on a node. The first argument of the visitor is a collection
+  // of the attribute values for the node's children. These are calculated
+  // lazily -- in this way the visitor can decide in what order to visit the
+  // subtrees.
+  createAttribute: function(visitor, defaultValue, context) {
+    var self = this;
+    var memo = new WeakMap();
+    function _visit(stack, value, key, parent) {
+      if (isObject(value) && stack.indexOf(value) >= 0)
+        throw new TypeError('A cycle was detected at ' + value);
+
+      if (memo.has(value))
+        return memo.get(value);
+
+      var subResults;
+      var target = self._traversalStrategy(value);
+      if (isObject(target) && Object.keys(target).length > 0) {
+        subResults = {};
+        each(target, function(child, k) {
+          defineEnumerableProperty(subResults, k, function() {
+            return _visit(copyAndPush(stack,value), child, k, value);
+          });
+        });
+      }
+      var result = visitor.call(context, subResults, value, key, parent);
+      memo.set(value, result);
+      return result;
+    }
+    return function(obj) { return _visit([], obj); };
+  }
+});
+
+var WalkerProto = Walker.prototype;
+
+// Set up a few convenient aliases.
+WalkerProto.each = WalkerProto.preorder;
+WalkerProto.collect = WalkerProto.map;
+WalkerProto.detect = WalkerProto.find;
+WalkerProto.select = WalkerProto.filter;
+
+// Export the walker constructor, but make it behave like an instance.
+Walker._traversalStrategy = defaultTraversal;
+module.exports = extend(Walker, WalkerProto);
+
+},{"./third_party/WeakMap":12,"util-extend":11}],11:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -4508,559 +5553,10 @@ module.exports = function isBuffer(arg) {
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-var formatRegExp = /%[sdj%]/g;
-exports.format = function(f) {
-  if (!isString(f)) {
-    var objects = [];
-    for (var i = 0; i < arguments.length; i++) {
-      objects.push(inspect(arguments[i]));
-    }
-    return objects.join(' ');
-  }
-
-  var i = 1;
-  var args = arguments;
-  var len = args.length;
-  var str = String(f).replace(formatRegExp, function(x) {
-    if (x === '%%') return '%';
-    if (i >= len) return x;
-    switch (x) {
-      case '%s': return String(args[i++]);
-      case '%d': return Number(args[i++]);
-      case '%j':
-        try {
-          return JSON.stringify(args[i++]);
-        } catch (_) {
-          return '[Circular]';
-        }
-      default:
-        return x;
-    }
-  });
-  for (var x = args[i]; i < len; x = args[++i]) {
-    if (isNull(x) || !isObject(x)) {
-      str += ' ' + x;
-    } else {
-      str += ' ' + inspect(x);
-    }
-  }
-  return str;
-};
-
-
-// Mark that a method should not be used.
-// Returns a modified function which warns once by default.
-// If --no-deprecation is set, then it is a no-op.
-exports.deprecate = function(fn, msg) {
-  // Allow for deprecating things in the process of starting up.
-  if (isUndefined(global.process)) {
-    return function() {
-      return exports.deprecate(fn, msg).apply(this, arguments);
-    };
-  }
-
-  if (process.noDeprecation === true) {
-    return fn;
-  }
-
-  var warned = false;
-  function deprecated() {
-    if (!warned) {
-      if (process.throwDeprecation) {
-        throw new Error(msg);
-      } else if (process.traceDeprecation) {
-        console.trace(msg);
-      } else {
-        console.error(msg);
-      }
-      warned = true;
-    }
-    return fn.apply(this, arguments);
-  }
-
-  return deprecated;
-};
-
-
-var debugs = {};
-var debugEnviron;
-exports.debuglog = function(set) {
-  if (isUndefined(debugEnviron))
-    debugEnviron = process.env.NODE_DEBUG || '';
-  set = set.toUpperCase();
-  if (!debugs[set]) {
-    if (new RegExp('\\b' + set + '\\b', 'i').test(debugEnviron)) {
-      var pid = process.pid;
-      debugs[set] = function() {
-        var msg = exports.format.apply(exports, arguments);
-        console.error('%s %d: %s', set, pid, msg);
-      };
-    } else {
-      debugs[set] = function() {};
-    }
-  }
-  return debugs[set];
-};
-
-
-/**
- * Echos the value of a value. Trys to print the value out
- * in the best way possible given the different types.
- *
- * @param {Object} obj The object to print out.
- * @param {Object} opts Optional options object that alters the output.
- */
-/* legacy: obj, showHidden, depth, colors*/
-function inspect(obj, opts) {
-  // default options
-  var ctx = {
-    seen: [],
-    stylize: stylizeNoColor
-  };
-  // legacy...
-  if (arguments.length >= 3) ctx.depth = arguments[2];
-  if (arguments.length >= 4) ctx.colors = arguments[3];
-  if (isBoolean(opts)) {
-    // legacy...
-    ctx.showHidden = opts;
-  } else if (opts) {
-    // got an "options" object
-    exports._extend(ctx, opts);
-  }
-  // set default options
-  if (isUndefined(ctx.showHidden)) ctx.showHidden = false;
-  if (isUndefined(ctx.depth)) ctx.depth = 2;
-  if (isUndefined(ctx.colors)) ctx.colors = false;
-  if (isUndefined(ctx.customInspect)) ctx.customInspect = true;
-  if (ctx.colors) ctx.stylize = stylizeWithColor;
-  return formatValue(ctx, obj, ctx.depth);
-}
-exports.inspect = inspect;
-
-
-// http://en.wikipedia.org/wiki/ANSI_escape_code#graphics
-inspect.colors = {
-  'bold' : [1, 22],
-  'italic' : [3, 23],
-  'underline' : [4, 24],
-  'inverse' : [7, 27],
-  'white' : [37, 39],
-  'grey' : [90, 39],
-  'black' : [30, 39],
-  'blue' : [34, 39],
-  'cyan' : [36, 39],
-  'green' : [32, 39],
-  'magenta' : [35, 39],
-  'red' : [31, 39],
-  'yellow' : [33, 39]
-};
-
-// Don't use 'blue' not visible on cmd.exe
-inspect.styles = {
-  'special': 'cyan',
-  'number': 'yellow',
-  'boolean': 'yellow',
-  'undefined': 'grey',
-  'null': 'bold',
-  'string': 'green',
-  'date': 'magenta',
-  // "name": intentionally not styling
-  'regexp': 'red'
-};
-
-
-function stylizeWithColor(str, styleType) {
-  var style = inspect.styles[styleType];
-
-  if (style) {
-    return '\u001b[' + inspect.colors[style][0] + 'm' + str +
-           '\u001b[' + inspect.colors[style][1] + 'm';
-  } else {
-    return str;
-  }
-}
-
-
-function stylizeNoColor(str, styleType) {
-  return str;
-}
-
-
-function arrayToHash(array) {
-  var hash = {};
-
-  array.forEach(function(val, idx) {
-    hash[val] = true;
-  });
-
-  return hash;
-}
-
-
-function formatValue(ctx, value, recurseTimes) {
-  // Provide a hook for user-specified inspect functions.
-  // Check that value is an object with an inspect function on it
-  if (ctx.customInspect &&
-      value &&
-      isFunction(value.inspect) &&
-      // Filter out the util module, it's inspect function is special
-      value.inspect !== exports.inspect &&
-      // Also filter out any prototype objects using the circular check.
-      !(value.constructor && value.constructor.prototype === value)) {
-    var ret = value.inspect(recurseTimes, ctx);
-    if (!isString(ret)) {
-      ret = formatValue(ctx, ret, recurseTimes);
-    }
-    return ret;
-  }
-
-  // Primitive types cannot have properties
-  var primitive = formatPrimitive(ctx, value);
-  if (primitive) {
-    return primitive;
-  }
-
-  // Look up the keys of the object.
-  var keys = Object.keys(value);
-  var visibleKeys = arrayToHash(keys);
-
-  if (ctx.showHidden) {
-    keys = Object.getOwnPropertyNames(value);
-  }
-
-  // IE doesn't make error fields non-enumerable
-  // http://msdn.microsoft.com/en-us/library/ie/dww52sbt(v=vs.94).aspx
-  if (isError(value)
-      && (keys.indexOf('message') >= 0 || keys.indexOf('description') >= 0)) {
-    return formatError(value);
-  }
-
-  // Some type of object without properties can be shortcutted.
-  if (keys.length === 0) {
-    if (isFunction(value)) {
-      var name = value.name ? ': ' + value.name : '';
-      return ctx.stylize('[Function' + name + ']', 'special');
-    }
-    if (isRegExp(value)) {
-      return ctx.stylize(RegExp.prototype.toString.call(value), 'regexp');
-    }
-    if (isDate(value)) {
-      return ctx.stylize(Date.prototype.toString.call(value), 'date');
-    }
-    if (isError(value)) {
-      return formatError(value);
-    }
-  }
-
-  var base = '', array = false, braces = ['{', '}'];
-
-  // Make Array say that they are Array
-  if (isArray(value)) {
-    array = true;
-    braces = ['[', ']'];
-  }
-
-  // Make functions say that they are functions
-  if (isFunction(value)) {
-    var n = value.name ? ': ' + value.name : '';
-    base = ' [Function' + n + ']';
-  }
-
-  // Make RegExps say that they are RegExps
-  if (isRegExp(value)) {
-    base = ' ' + RegExp.prototype.toString.call(value);
-  }
-
-  // Make dates with properties first say the date
-  if (isDate(value)) {
-    base = ' ' + Date.prototype.toUTCString.call(value);
-  }
-
-  // Make error with message first say the error
-  if (isError(value)) {
-    base = ' ' + formatError(value);
-  }
-
-  if (keys.length === 0 && (!array || value.length == 0)) {
-    return braces[0] + base + braces[1];
-  }
-
-  if (recurseTimes < 0) {
-    if (isRegExp(value)) {
-      return ctx.stylize(RegExp.prototype.toString.call(value), 'regexp');
-    } else {
-      return ctx.stylize('[Object]', 'special');
-    }
-  }
-
-  ctx.seen.push(value);
-
-  var output;
-  if (array) {
-    output = formatArray(ctx, value, recurseTimes, visibleKeys, keys);
-  } else {
-    output = keys.map(function(key) {
-      return formatProperty(ctx, value, recurseTimes, visibleKeys, key, array);
-    });
-  }
-
-  ctx.seen.pop();
-
-  return reduceToSingleString(output, base, braces);
-}
-
-
-function formatPrimitive(ctx, value) {
-  if (isUndefined(value))
-    return ctx.stylize('undefined', 'undefined');
-  if (isString(value)) {
-    var simple = '\'' + JSON.stringify(value).replace(/^"|"$/g, '')
-                                             .replace(/'/g, "\\'")
-                                             .replace(/\\"/g, '"') + '\'';
-    return ctx.stylize(simple, 'string');
-  }
-  if (isNumber(value))
-    return ctx.stylize('' + value, 'number');
-  if (isBoolean(value))
-    return ctx.stylize('' + value, 'boolean');
-  // For some reason typeof null is "object", so special case here.
-  if (isNull(value))
-    return ctx.stylize('null', 'null');
-}
-
-
-function formatError(value) {
-  return '[' + Error.prototype.toString.call(value) + ']';
-}
-
-
-function formatArray(ctx, value, recurseTimes, visibleKeys, keys) {
-  var output = [];
-  for (var i = 0, l = value.length; i < l; ++i) {
-    if (hasOwnProperty(value, String(i))) {
-      output.push(formatProperty(ctx, value, recurseTimes, visibleKeys,
-          String(i), true));
-    } else {
-      output.push('');
-    }
-  }
-  keys.forEach(function(key) {
-    if (!key.match(/^\d+$/)) {
-      output.push(formatProperty(ctx, value, recurseTimes, visibleKeys,
-          key, true));
-    }
-  });
-  return output;
-}
-
-
-function formatProperty(ctx, value, recurseTimes, visibleKeys, key, array) {
-  var name, str, desc;
-  desc = Object.getOwnPropertyDescriptor(value, key) || { value: value[key] };
-  if (desc.get) {
-    if (desc.set) {
-      str = ctx.stylize('[Getter/Setter]', 'special');
-    } else {
-      str = ctx.stylize('[Getter]', 'special');
-    }
-  } else {
-    if (desc.set) {
-      str = ctx.stylize('[Setter]', 'special');
-    }
-  }
-  if (!hasOwnProperty(visibleKeys, key)) {
-    name = '[' + key + ']';
-  }
-  if (!str) {
-    if (ctx.seen.indexOf(desc.value) < 0) {
-      if (isNull(recurseTimes)) {
-        str = formatValue(ctx, desc.value, null);
-      } else {
-        str = formatValue(ctx, desc.value, recurseTimes - 1);
-      }
-      if (str.indexOf('\n') > -1) {
-        if (array) {
-          str = str.split('\n').map(function(line) {
-            return '  ' + line;
-          }).join('\n').substr(2);
-        } else {
-          str = '\n' + str.split('\n').map(function(line) {
-            return '   ' + line;
-          }).join('\n');
-        }
-      }
-    } else {
-      str = ctx.stylize('[Circular]', 'special');
-    }
-  }
-  if (isUndefined(name)) {
-    if (array && key.match(/^\d+$/)) {
-      return str;
-    }
-    name = JSON.stringify('' + key);
-    if (name.match(/^"([a-zA-Z_][a-zA-Z_0-9]*)"$/)) {
-      name = name.substr(1, name.length - 2);
-      name = ctx.stylize(name, 'name');
-    } else {
-      name = name.replace(/'/g, "\\'")
-                 .replace(/\\"/g, '"')
-                 .replace(/(^"|"$)/g, "'");
-      name = ctx.stylize(name, 'string');
-    }
-  }
-
-  return name + ': ' + str;
-}
-
-
-function reduceToSingleString(output, base, braces) {
-  var numLinesEst = 0;
-  var length = output.reduce(function(prev, cur) {
-    numLinesEst++;
-    if (cur.indexOf('\n') >= 0) numLinesEst++;
-    return prev + cur.replace(/\u001b\[\d\d?m/g, '').length + 1;
-  }, 0);
-
-  if (length > 60) {
-    return braces[0] +
-           (base === '' ? '' : base + '\n ') +
-           ' ' +
-           output.join(',\n  ') +
-           ' ' +
-           braces[1];
-  }
-
-  return braces[0] + base + ' ' + output.join(', ') + ' ' + braces[1];
-}
-
-
-// NOTE: These type checking functions intentionally don't use `instanceof`
-// because it is fragile and can be easily faked with `Object.create()`.
-function isArray(ar) {
-  return Array.isArray(ar);
-}
-exports.isArray = isArray;
-
-function isBoolean(arg) {
-  return typeof arg === 'boolean';
-}
-exports.isBoolean = isBoolean;
-
-function isNull(arg) {
-  return arg === null;
-}
-exports.isNull = isNull;
-
-function isNullOrUndefined(arg) {
-  return arg == null;
-}
-exports.isNullOrUndefined = isNullOrUndefined;
-
-function isNumber(arg) {
-  return typeof arg === 'number';
-}
-exports.isNumber = isNumber;
-
-function isString(arg) {
-  return typeof arg === 'string';
-}
-exports.isString = isString;
-
-function isSymbol(arg) {
-  return typeof arg === 'symbol';
-}
-exports.isSymbol = isSymbol;
-
-function isUndefined(arg) {
-  return arg === void 0;
-}
-exports.isUndefined = isUndefined;
-
-function isRegExp(re) {
-  return isObject(re) && objectToString(re) === '[object RegExp]';
-}
-exports.isRegExp = isRegExp;
-
-function isObject(arg) {
-  return typeof arg === 'object' && arg !== null;
-}
-exports.isObject = isObject;
-
-function isDate(d) {
-  return isObject(d) && objectToString(d) === '[object Date]';
-}
-exports.isDate = isDate;
-
-function isError(e) {
-  return isObject(e) &&
-      (objectToString(e) === '[object Error]' || e instanceof Error);
-}
-exports.isError = isError;
-
-function isFunction(arg) {
-  return typeof arg === 'function';
-}
-exports.isFunction = isFunction;
-
-function isPrimitive(arg) {
-  return arg === null ||
-         typeof arg === 'boolean' ||
-         typeof arg === 'number' ||
-         typeof arg === 'string' ||
-         typeof arg === 'symbol' ||  // ES6 symbol
-         typeof arg === 'undefined';
-}
-exports.isPrimitive = isPrimitive;
-
-exports.isBuffer = require('./support/isBuffer');
-
-function objectToString(o) {
-  return Object.prototype.toString.call(o);
-}
-
-
-function pad(n) {
-  return n < 10 ? '0' + n.toString(10) : n.toString(10);
-}
-
-
-var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep',
-              'Oct', 'Nov', 'Dec'];
-
-// 26 Feb 16:19:34
-function timestamp() {
-  var d = new Date();
-  var time = [pad(d.getHours()),
-              pad(d.getMinutes()),
-              pad(d.getSeconds())].join(':');
-  return [d.getDate(), months[d.getMonth()], time].join(' ');
-}
-
-
-// log is just a thin wrapper to console.log that prepends a timestamp
-exports.log = function() {
-  console.log('%s - %s', timestamp(), exports.format.apply(exports, arguments));
-};
-
-
-/**
- * Inherit the prototype methods from one constructor into another.
- *
- * The Function.prototype.inherits from lang.js rewritten as a standalone
- * function (not on Function.prototype). NOTE: If this file is to be loaded
- * during bootstrapping this function needs to be rewritten using some native
- * functions as prototype setup using normal JavaScript does not work as
- * expected during bootstrapping (see mirror.js in r114903).
- *
- * @param {function} ctor Constructor function which needs to inherit the
- *     prototype.
- * @param {function} superCtor Constructor function to inherit prototype from.
- */
-exports.inherits = require('inherits');
-
-exports._extend = function(origin, add) {
+module.exports = extend;
+function extend(origin, add) {
   // Don't do anything if add isn't an object
-  if (!add || !isObject(add)) return origin;
+  if (!add || typeof add !== 'object') return origin;
 
   var keys = Object.keys(add);
   var i = keys.length;
@@ -5068,14 +5564,558 @@ exports._extend = function(origin, add) {
     origin[keys[i]] = add[keys[i]];
   }
   return origin;
-};
-
-function hasOwnProperty(obj, prop) {
-  return Object.prototype.hasOwnProperty.call(obj, prop);
 }
 
-}).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":9,"_process":8,"inherits":7}],11:[function(require,module,exports){
-module.exports=require(5)
-},{"/Users/dubroy/dev/ma/node_modules/Immutable/dist/immutable.js":5}]},{},[1])(1)
+},{}],12:[function(require,module,exports){
+/*
+ * Copyright 2012 The Polymer Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style
+ * license that can be found in the LICENSE file.
+ */
+
+if (typeof WeakMap === 'undefined') {
+  (function() {
+    var defineProperty = Object.defineProperty;
+    var counter = Date.now() % 1e9;
+
+    var WeakMap = function() {
+      this.name = '__st' + (Math.random() * 1e9 >>> 0) + (counter++ + '__');
+    };
+
+    WeakMap.prototype = {
+      set: function(key, value) {
+        var entry = key[this.name];
+        if (entry && entry[0] === key)
+          entry[1] = value;
+        else
+          defineProperty(key, this.name, {value: [key, value], writable: true});
+        return this;
+      },
+      get: function(key) {
+        var entry;
+        return (entry = key[this.name]) && entry[0] === key ?
+            entry[1] : undefined;
+      },
+      delete: function(key) {
+        var entry = key[this.name];
+        if (!entry || entry[0] !== key) return false;
+        entry[0] = entry[1] = undefined;
+        return true;
+      },
+      has: function(key) {
+        var entry = key[this.name];
+        if (!entry) return false;
+        return entry[0] === key;
+      }
+    };
+
+    module.exports = WeakMap;
+  })();
+} else {
+  module.exports = WeakMap;
+}
+
+},{}],13:[function(require,module,exports){
+(function (global){
+!function(e){if("object"==typeof exports&&"undefined"!=typeof module)module.exports=e();else if("function"==typeof define&&define.amd)define([],e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.pm=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(_dereq_,module,exports){
+var iterable = _dereq_('./lib/iterable');
+var isIterable = iterable.isIterable;
+var toArray = iterable.toArray;
+
+var FAIL = { fail: true };
+var ArrayProto = Array.prototype;
+
+function MatchFailure(value, stack) {
+  this.value = value;
+  this.stack = stack;
+}
+
+MatchFailure.prototype.toString = function() {
+  return 'match failure';
+};
+
+// Pattern
+// -------
+
+function Pattern() {}
+
+// Creates a custom Pattern class. If `props` has an 'init' property, it will
+// be called to initialize newly-created instances. All other properties in
+// `props` will be copied to the prototype of the new constructor.
+Pattern.extend = function(props) {
+  function ctor() {
+    var self = this;
+    if (!(self instanceof ctor)) {
+      self = new ctor();
+    }
+    if ('init' in props) {
+      props.init.apply(self, ArrayProto.slice.call(arguments));
+    }
+    return self;
+  }
+  var proto = ctor.prototype = new Pattern();
+  for (var k in props) {
+    if (k !== 'init') {
+      proto[k] = props[k];
+    }
+  }
+  return ctor;
+};
+
+// Expose some useful functions as instance methods on Pattern.
+Pattern.prototype.performMatch = performMatch;
+Pattern.prototype.getArity = getArity;
+
+// Types of pattern
+// ----------------
+
+var Is = Pattern.extend({
+  init: function(expectedValue) {
+    this.expectedValue = expectedValue;
+  },
+  arity: 0,
+  match: function(value, bindings) {
+    return _equalityMatch(value, this.expectedValue, bindings);
+  }
+});
+
+var Iterable = Pattern.extend({
+  init: function(patterns) {
+    this.patterns = patterns;
+    this.arity = patterns
+      .map(function(pattern) { return getArity(pattern); })
+      .reduce(function(a1, a2) { return a1 + a2; }, 0);
+  },
+  match: function(value, bindings) {
+    return isIterable(value) ?
+      _arrayMatch(toArray(value), this.patterns, bindings) :
+      FAIL;
+  }
+});
+
+var Many = Pattern.extend({
+  init: function(pattern) {
+    this.pattern = pattern;
+  },
+  arity: 1,
+  match: function(value, bindings) {
+    throw new Error("'many' pattern used outside array pattern");
+  }
+});
+
+var Opt = Pattern.extend({
+  init: function(pattern) {
+    this.pattern = pattern;
+  },
+  arity: 1,
+  match: function(value, bindings) {
+    throw new Error("'opt' pattern used outside array pattern");
+  }
+});
+
+var Trans = Pattern.extend({
+  init: function(pattern, func) {
+    this.pattern = pattern;
+    this.func = func;
+    ensure(
+      typeof func === 'function' && func.length === getArity(pattern),
+      'func must be a ' + getArity(pattern) + '-argument function'
+    );
+  },
+  arity: 1,
+  match: function(value, bindings) {
+    var bs = [];
+    var ans = performMatch(value, this.pattern, bs);
+    if (ans === FAIL) {
+      return FAIL;
+    } else {
+      ans = this.func.apply(this.thisObj, bs);
+      bindings.push(ans);
+      return ans;
+    }
+  }
+});
+
+var When = Pattern.extend({
+  init: function(pattern, predicate) {
+    this.pattern = pattern;
+    this.predicate = predicate;
+    this.arity = getArity(pattern);
+    ensure(
+      typeof predicate === 'function' && predicate.length === this.arity,
+      'predicate must be a ' + this.arity + '-argument function'
+    );
+  },
+  match: function(value, bindings) {
+    var bs = [];
+    var ans = performMatch(value, this.pattern, bs);
+    if (ans === FAIL || !this.predicate.apply(this.thisObj, bs)) {
+      return FAIL;
+    } else {
+      bindings.push.apply(bindings, bs);
+      return value;
+    }
+  }
+});
+
+var Or = Pattern.extend({
+  init: function(patterns) {
+    ensure(patterns.length >= 2, "'or' requires at least two patterns");
+    this.patterns = patterns;
+    this.arity = ensureUniformArity(patterns, 'or');
+  },
+  match: function(value, bindings) {
+    var patterns = this.patterns;
+    var ans = FAIL;
+    for (var idx = 0; idx < patterns.length && ans === FAIL; idx++) {
+      ans = performMatch(value, patterns[idx], bindings);
+    }
+    return ans;
+  }
+});
+
+var And = Pattern.extend({
+  init: function(patterns) {
+    ensure(patterns.length >= 2, "'and' requires at least two patterns");
+    this.patterns = patterns;
+    this.arity = patterns.reduce(function(sum, p) {
+      return sum + getArity(p); },
+    0);
+  },
+  match: function(value, bindings) {
+    var patterns = this.patterns;
+    var ans;
+    for (var idx = 0; idx < patterns.length && ans !== FAIL; idx++) {
+      ans = performMatch(value, patterns[idx], bindings);
+    }
+    return ans;
+  }
+});
+
+// Helpers
+// -------
+
+function _arrayMatch(value, pattern, bindings) {
+  if (!Array.isArray(value)) {
+    return FAIL;
+  }
+  var vIdx = 0;
+  var pIdx = 0;
+  while (pIdx < pattern.length) {
+    var p = pattern[pIdx++];
+    if (p instanceof Many) {
+      p = p.pattern;
+      var vs = [];
+      while (vIdx < value.length && performMatch(value[vIdx], p, vs) !== FAIL) {
+        vIdx++;
+      }
+      bindings.push(vs);
+    } else if (p instanceof Opt) {
+      var ans = vIdx < value.length ? performMatch(value[vIdx], p.pattern, []) : FAIL;
+      if (ans === FAIL) {
+        bindings.push(undefined);
+      } else {
+        bindings.push(ans);
+        vIdx++;
+      }
+    } else if (performMatch(value[vIdx], p, bindings) !== FAIL) {
+      vIdx++;
+    } else {
+      return FAIL;
+    }
+  }
+  return vIdx === value.length && pIdx === pattern.length ? value : FAIL;
+}
+
+function _objMatch(value, pattern, bindings) {
+  for (var k in pattern) {
+    if (pattern.hasOwnProperty(k) &&
+        !(k in value) ||
+        performMatch(value[k], pattern[k], bindings) === FAIL) {
+      return FAIL;
+    }
+  }
+  return value;
+}
+
+function _functionMatch(value, func, bindings) {
+  if (func(value)) {
+    bindings.push(value);
+    return value;
+  } else {
+    return FAIL;
+  }
+}
+
+function _equalityMatch(value, pattern, bindings) {
+  return value === pattern ? value : FAIL;
+}
+
+function _regExpMatch(value, pattern, bindings) {
+  var ans = pattern.exec(value);
+  if (ans !== null && ans[0] === value) {
+    bindings.push(ans);
+    return value;
+  } else {
+    return FAIL;
+  }
+}
+
+function performMatch(value, pattern, bindings) {
+  if (pattern instanceof Pattern) {
+    ensure(typeof pattern.match === 'function', "Patterns must have a 'match' method");
+    return pattern.match(value, bindings);
+  } else if (Array.isArray(pattern)) {
+    return _arrayMatch(value, pattern, bindings);
+  } else if (pattern instanceof RegExp) {
+    return _regExpMatch(value, pattern, bindings);
+  } else if (typeof pattern === 'object' && pattern !== null) {
+    return _objMatch(value, pattern, bindings);
+  } else if (typeof pattern === 'function') {
+    return _functionMatch(value, pattern, bindings);
+  }
+  return _equalityMatch(value, pattern, bindings);
+}
+
+function getArity(pattern) {
+  if (pattern instanceof Pattern) {
+    ensure(typeof pattern.arity === 'number', "Patterns must have an 'arity' property");
+    return pattern.arity;
+  } else if (Array.isArray(pattern)) {
+    return pattern
+      .map(function(p) { return getArity(p); })
+      .reduce(function(a1, a2) { return a1 + a2; }, 0);
+  } else if (typeof pattern === 'function' || pattern instanceof RegExp) {
+    return 1;
+  } else if (typeof pattern === 'object') {
+    var ans = 0;
+    for (var k in pattern) {
+      if (pattern.hasOwnProperty(k)) {
+        ans += getArity(pattern[k]);
+      }
+    }
+    return ans;
+  } else {
+    return 0;
+  }
+}
+
+function ensureUniformArity(patterns, op) {
+  var result = getArity(patterns[0]);
+  for (var idx = 1; idx < patterns.length; idx++) {
+    var a = getArity(patterns[idx]);
+    if (a !== result) {
+      throw new Error(op + ': expected arity ' + result + ' at index ' + idx + ', got ' + a);
+    }
+  }
+  return result;
+}
+
+function ensure(cond, message) {
+  if (!cond) {
+    throw new Error(message);
+  }
+}
+
+// Matcher
+// -------
+
+function Matcher() {
+  this.patterns = [];
+  this.thisObj = undefined;
+}
+
+Matcher.prototype.withThis = function(obj) {
+  this.thisObj = obj;
+  return this;
+};
+
+Matcher.prototype.addCase = function(pattern, optFunc) {
+  this.patterns.push(optFunc ? Matcher.trans(pattern, optFunc) : pattern);
+  return this;
+};
+
+Matcher.prototype.match = function(value) {
+  for (var idx = 0; idx < this.patterns.length; idx++) {
+    var ans = performMatch(value, this.patterns[idx], []);
+    if (ans !== FAIL) {
+      return ans;
+    }
+  }
+  throw new MatchFailure(value, new Error().stack);
+};
+
+Matcher.prototype.toFunction = function() {
+  var self = this;
+  return function(value) { return self.match(value); };
+};
+
+// Primitive patterns
+
+Matcher._      = function(x) { return true; };
+Matcher.bool   = function(x) { return typeof x === 'boolean'; };
+Matcher.number = function(x) { return typeof x === 'number'; };
+Matcher.string = function(x) { return typeof x === 'string'; };
+Matcher.char   = function(x) { return typeof x === 'string' && x.length === 0; };
+
+// Combinators
+
+Matcher.is       = function(expectedValue)     { return new Is(expectedValue); };
+Matcher.iterable = function(/* p1, p2, ... */) { return new Iterable(ArrayProto.slice.call(arguments)); };
+Matcher.many     = function(pattern)           { return new Many(pattern); };
+Matcher.opt      = function(pattern)           { return new Opt(pattern); };
+Matcher.trans    = function(pattern, func)     { return new Trans(pattern, func); };
+Matcher.when     = function(pattern, pred)     { return new When(pattern, pred); };
+Matcher.or       = function(/* p1, p2, ... */) { return new Or(ArrayProto.slice.call(arguments)); };
+Matcher.and      = function(/* p1, p2, ... */) { return new And(ArrayProto.slice.call(arguments)); };
+
+// Operators
+
+Matcher.instanceOf = function(clazz) { return function(x) { return x instanceof clazz; }; };
+
+Matcher.MatchFailure = MatchFailure;
+
+// Terse interface
+// ---------------
+
+function match(v /* , pat1, fun1, pat2, fun2, ... */) {
+  var args = arguments;
+  // Allow calling w/ 2 args, where the second arg is an Array [p1, f1, ...].
+  if (args.length === 2 && Array.isArray(args[1])) {
+    args = [args[0]].concat(args[1]);
+  }
+  if (args.length % 2 !== 1) {
+    throw new Error('match called with invalid arguments');
+  }
+  var m = new Matcher();
+  for (var idx = 1; idx < args.length; idx += 2) {
+    var pattern = args[idx];
+    var func = args[idx + 1];
+    m.addCase(pattern, func);
+  }
+  try {
+    return m.match(v);
+  } catch (e) {
+    if (e instanceof MatchFailure) {
+      return FAIL;
+    } else {
+      throw e;
+    }
+  }
+}
+
+match.FAIL = FAIL;
+
+// Exports
+// -------
+
+module.exports = {
+  Matcher: Matcher,
+  match: match,
+  Pattern: Pattern
+};
+
+},{"./lib/iterable":2}],2:[function(_dereq_,module,exports){
+/* global Symbol */
+
+var ITERATOR_SYMBOL = typeof Symbol === 'function' && Symbol.iterator;
+var FAKE_ITERATOR_SYMBOL = '@@iterator';
+
+var toString = Object.prototype.toString;
+
+// Helpers
+// -------
+
+function isString(obj) {
+	return toString.call(obj) === '[object String]';
+}
+
+function isNumber(obj) {
+	return toString.call(obj) === '[object Number]';
+}
+
+function isArrayLike(obj) {
+	return isNumber(obj.length) && !isString(obj);
+}
+
+// ArrayIterator
+// -------------
+
+function ArrayIterator(iteratee) {
+	this._iteratee = iteratee;
+	this._i = 0;
+	this._len = iteratee.length;
+}
+
+ArrayIterator.prototype.next = function() {
+	if (this._i < this._len) {
+		return { done: false, value: this._iteratee[this._i++] };
+	}
+	return { done: true };
+};
+
+ArrayIterator.prototype[FAKE_ITERATOR_SYMBOL] = function() { return this; };
+
+if (ITERATOR_SYMBOL) {
+	ArrayIterator.prototype[ITERATOR_SYMBOL] = function() { return this; };
+}
+
+// Exports
+// -------
+
+// Returns an iterator (an object that has a next() method) for `obj`.
+// First, it tries to use the ES6 iterator protocol (Symbol.iterator).
+// It falls back to the 'fake' iterator protocol ('@@iterator') that is
+// used by some libraries (e.g. immutable-js). Finally, if the object has
+// a numeric `length` property and is not a string, it is treated as an Array
+// to be iterated using an ArrayIterator.
+function getIterator(obj) {
+	if (!obj) {
+		return;
+	}
+	if (ITERATOR_SYMBOL && typeof obj[ITERATOR_SYMBOL] === 'function') {
+		return obj[ITERATOR_SYMBOL]();
+	}
+	if (typeof obj[FAKE_ITERATOR_SYMBOL] === 'function') {
+		return obj[FAKE_ITERATOR_SYMBOL]();
+	}
+	if (isArrayLike(obj)) {
+		return new ArrayIterator(obj);
+	}
+}
+
+function isIterable(obj) {
+	if (obj) {
+		return (ITERATOR_SYMBOL && typeof obj[ITERATOR_SYMBOL] === 'function') ||
+					 typeof obj[FAKE_ITERATOR_SYMBOL] === 'function' ||
+					 isArrayLike(obj);
+	}
+	return false;
+}
+
+function toArray(iterable) {
+	var iter = getIterator(iterable);
+	if (iter) {
+		var result = [];
+		var next;
+		while (!(next = iter.next()).done) {
+			result.push(next.value);
+		}
+		return result;
+	}
+}
+
+module.exports = {
+	getIterator: getIterator,
+	isIterable: isIterable,
+	toArray: toArray
+};
+
+},{}]},{},[1])(1)
+});
+
+
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{}]},{},[1])(1)
 });
