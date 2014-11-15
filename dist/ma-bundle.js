@@ -38,9 +38,8 @@ var immutableObj = pm.Pattern.extend({
     this.arity = this.getArity(objPattern);
   },
   match: function(value, bindings) {
-    if (value instanceof this.ctor)
-      return this.performMatch(value.toObject(), this.objPattern, bindings);
-    return pm.match.FAIL;
+    return (value instanceof this.ctor &&
+            this.performMatch(value.toObject(), this.objPattern, bindings));
   }
 });
 
@@ -51,9 +50,8 @@ var immutableList = pm.Pattern.extend({
     this.arity = this.getArity(arrPattern);
   },
   match: function(value, bindings) {
-    if (Immutable.List.isList(value))
-      return this.performMatch(value.toArray(), this.arrPattern, bindings);
-    return pm.match.FAIL;
+    return (Immutable.List.isList(value) &&
+            this.performMatch(value.toArray(), this.arrPattern, bindings));
   }
 });
 
@@ -5625,6 +5623,9 @@ var toArray = iterable.toArray;
 var FAIL = { fail: true };
 var ArrayProto = Array.prototype;
 
+// MatchFailure
+// ------------
+
 function MatchFailure(value, stack) {
   this.value = value;
   this.stack = stack;
@@ -5632,6 +5633,19 @@ function MatchFailure(value, stack) {
 
 MatchFailure.prototype.toString = function() {
   return 'match failure';
+};
+
+// MatchResult
+// -----------
+
+// A MatchResult is used to wrap an arbitrary value into a 'truthy' object
+// that can be returned from a Pattern's `match` method.
+function MatchResult(value) {
+  this.value = value;
+}
+
+MatchResult.prototype.toString = function() {
+  return '[MatchResult: ' + this.value + ']';
 };
 
 // Pattern
@@ -5651,6 +5665,8 @@ Pattern.extend = function(props) {
     if ('init' in props) {
       props.init.apply(self, ArrayProto.slice.call(arguments));
     }
+    ensure(typeof self.match === 'function', "Patterns must have a 'match' method");
+    ensure(typeof self.arity === 'number', "Patterns must have an 'arity' property");
     return self;
   }
   var proto = ctor.prototype = new Pattern();
@@ -5689,7 +5705,7 @@ var Iterable = Pattern.extend({
   match: function(value, bindings) {
     return isIterable(value) ?
       _arrayMatch(toArray(value), this.patterns, bindings) :
-      FAIL;
+      false;
   }
 });
 
@@ -5725,14 +5741,12 @@ var Trans = Pattern.extend({
   arity: 1,
   match: function(value, bindings) {
     var bs = [];
-    var ans = performMatch(value, this.pattern, bs);
-    if (ans === FAIL) {
-      return FAIL;
-    } else {
-      ans = this.func.apply(this.thisObj, bs);
+    if (performMatch(value, this.pattern, bs)) {
+      var ans = this.func.apply(this.thisObj, bs);
       bindings.push(ans);
-      return ans;
+      return new MatchResult(ans);
     }
+    return false;
   }
 });
 
@@ -5748,13 +5762,12 @@ var When = Pattern.extend({
   },
   match: function(value, bindings) {
     var bs = [];
-    var ans = performMatch(value, this.pattern, bs);
-    if (ans === FAIL || !this.predicate.apply(this.thisObj, bs)) {
-      return FAIL;
-    } else {
+    if (performMatch(value, this.pattern, bs) &&
+        this.predicate.apply(this.thisObj, bs)) {
       bindings.push.apply(bindings, bs);
-      return value;
+      return true;
     }
+    return false;
   }
 });
 
@@ -5766,8 +5779,8 @@ var Or = Pattern.extend({
   },
   match: function(value, bindings) {
     var patterns = this.patterns;
-    var ans = FAIL;
-    for (var idx = 0; idx < patterns.length && ans === FAIL; idx++) {
+    var ans = false;
+    for (var idx = 0; idx < patterns.length && !ans; idx++) {
       ans = performMatch(value, patterns[idx], bindings);
     }
     return ans;
@@ -5784,8 +5797,8 @@ var And = Pattern.extend({
   },
   match: function(value, bindings) {
     var patterns = this.patterns;
-    var ans;
-    for (var idx = 0; idx < patterns.length && ans !== FAIL; idx++) {
+    var ans = true;
+    for (var idx = 0; idx < patterns.length && ans; idx++) {
       ans = performMatch(value, patterns[idx], bindings);
     }
     return ans;
@@ -5797,7 +5810,7 @@ var And = Pattern.extend({
 
 function _arrayMatch(value, pattern, bindings) {
   if (!Array.isArray(value)) {
-    return FAIL;
+    return false;
   }
   var vIdx = 0;
   var pIdx = 0;
@@ -5806,64 +5819,61 @@ function _arrayMatch(value, pattern, bindings) {
     if (p instanceof Many) {
       p = p.pattern;
       var vs = [];
-      while (vIdx < value.length && performMatch(value[vIdx], p, vs) !== FAIL) {
+      while (vIdx < value.length && performMatch(value[vIdx], p, vs)) {
         vIdx++;
       }
       bindings.push(vs);
     } else if (p instanceof Opt) {
-      var ans = vIdx < value.length ? performMatch(value[vIdx], p.pattern, []) : FAIL;
-      if (ans === FAIL) {
-        bindings.push(undefined);
-      } else {
+      var ans = vIdx < value.length ? performMatch(value[vIdx], p.pattern, []) : false;
+      if (ans) {
         bindings.push(ans);
         vIdx++;
+      } else {
+        bindings.push(undefined);
       }
-    } else if (performMatch(value[vIdx], p, bindings) !== FAIL) {
+    } else if (performMatch(value[vIdx], p, bindings)) {
       vIdx++;
     } else {
-      return FAIL;
+      return false;
     }
   }
-  return vIdx === value.length && pIdx === pattern.length ? value : FAIL;
+  return vIdx === value.length && pIdx === pattern.length;
 }
 
 function _objMatch(value, pattern, bindings) {
   for (var k in pattern) {
     if (pattern.hasOwnProperty(k) &&
         !(k in value) ||
-        performMatch(value[k], pattern[k], bindings) === FAIL) {
-      return FAIL;
+        !performMatch(value[k], pattern[k], bindings)) {
+      return false;
     }
   }
-  return value;
+  return true;
 }
 
 function _functionMatch(value, func, bindings) {
   if (func(value)) {
     bindings.push(value);
-    return value;
-  } else {
-    return FAIL;
+    return true;
   }
+  return false;
 }
 
 function _equalityMatch(value, pattern, bindings) {
-  return value === pattern ? value : FAIL;
+  return value === pattern;
 }
 
 function _regExpMatch(value, pattern, bindings) {
   var ans = pattern.exec(value);
   if (ans !== null && ans[0] === value) {
     bindings.push(ans);
-    return value;
-  } else {
-    return FAIL;
+    return true;
   }
+  return false;
 }
 
 function performMatch(value, pattern, bindings) {
   if (pattern instanceof Pattern) {
-    ensure(typeof pattern.match === 'function', "Patterns must have a 'match' method");
     return pattern.match(value, bindings);
   } else if (Array.isArray(pattern)) {
     return _arrayMatch(value, pattern, bindings);
@@ -5879,7 +5889,6 @@ function performMatch(value, pattern, bindings) {
 
 function getArity(pattern) {
   if (pattern instanceof Pattern) {
-    ensure(typeof pattern.arity === 'number', "Patterns must have an 'arity' property");
     return pattern.arity;
   } else if (Array.isArray(pattern)) {
     return pattern
@@ -5938,8 +5947,8 @@ Matcher.prototype.addCase = function(pattern, optFunc) {
 Matcher.prototype.match = function(value) {
   for (var idx = 0; idx < this.patterns.length; idx++) {
     var ans = performMatch(value, this.patterns[idx], []);
-    if (ans !== FAIL) {
-      return ans;
+    if (ans) {
+      return ans instanceof MatchResult ? ans.value : value;
     }
   }
   throw new MatchFailure(value, new Error().stack);
@@ -5993,15 +6002,8 @@ function match(v /* , pat1, fun1, pat2, fun2, ... */) {
     var func = args[idx + 1];
     m.addCase(pattern, func);
   }
-  try {
-    return m.match(v);
-  } catch (e) {
-    if (e instanceof MatchFailure) {
-      return FAIL;
-    } else {
-      throw e;
-    }
-  }
+  m.addCase(Matcher._, function(val) { return FAIL; });
+  return m.match(v);
 }
 
 match.FAIL = FAIL;
