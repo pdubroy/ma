@@ -205,6 +205,11 @@ Vat.prototype._tryReaction = function(r) {
   });
   if (!result) return;
 
+  var arity = r.reaction.length;
+  var expectedArity = result.bindings.length + 1;
+  assert(arity === expectedArity,
+      'Bad function arity: expected ' + expectedArity + ', got ' + arity);
+
   // Put the object back in the vat, replacing the matched part with the
   // result of the reaction function.
   var root = result.root;

@@ -106,7 +106,7 @@ function addTuple(vat) {
 
 (function main() {
   var vat = new Vat();
-  vat.addReaction(['+', isNumber, isNumber], m => m.get(1) + m.get(2));
+  vat.addReaction(['+', isNumber, isNumber], (m, l, r) => l + r);
 
   addHandler('input.button', 'click', function() {
     addTuple(vat);

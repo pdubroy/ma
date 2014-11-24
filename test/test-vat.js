@@ -182,14 +182,13 @@ test('deep matching with maps', function(t) {
 test('reactions', function(t) {
   var vat = new Vat();
 
-  vat.addReaction([_, '+', _, _], function(match) {
-    var id = match.get(0);
-    var result = match.get(2) + match.get(3);
-    vat.addReaction([_, _, id, _], function(m) {
-      return [m.get(0), m.get(1), result, m.get(3)];
+  vat.addReaction([_, '+', _, _], function(val, id, left, right) {
+    var result = left + right;
+    vat.addReaction([_, _, id, _], function(val, a, b, c) {
+      return [a, b, result, c];
     });
-    vat.addReaction([_, _, _, id], function(m) {
-      return [m.get(0), m.get(1), m.get(2), result];
+    vat.addReaction([_, _, _, id], function(val, a, b, c) {
+      return [a, b, c, result];
     });
     return null;
   });
@@ -215,12 +214,12 @@ test('reactions', function(t) {
 test('deep reactions', function(t) {
   var vat = new Vat();
 
-  vat.addReaction(['+', isNumber, isNumber], function(match) {
-    return match.get(1) + match.get(2);
+  vat.addReaction(['+', isNumber, isNumber], function(val, left, right) {
+    return left + right;
   });
 
-  vat.addReaction(['*', isNumber, isNumber], function(match) {
-    return match.get(1) * match.get(2);
+  vat.addReaction(['*', isNumber, isNumber], function(val, left, right) {
+    return left * right;
   });
 
   vat.put(['+', 13, ['*', ['+', 3, 7], ['*', 1, 2]]]);
@@ -233,9 +232,8 @@ test('deep reactions', function(t) {
 test('reaction bindings', function(t) {
   var vat = new Vat();
 
-  vat.addReaction(['hello', _], function(val, arg1, arg2) {
+  vat.addReaction(['hello', _], function(val, arg1) {
     t.equal(val.get(0), 'hello');
-    t.equal(arg2, undefined);
     return arg1;
   });
   vat.put(['hello', 'world']);
