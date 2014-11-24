@@ -56,7 +56,7 @@ var immutableList = pm.Pattern.extend({
 });
 
 function matches(value, pattern) {
-  return pm.match(value, pattern, undefined) !== pm.match.FAIL;
+  return pm.match(value, pattern) !== null;
 }
 
 function convertPattern(p) {
@@ -5620,7 +5620,6 @@ var iterable = _dereq_('./lib/iterable');
 var isIterable = iterable.isIterable;
 var toArray = iterable.toArray;
 
-var FAIL = { fail: true };
 var ArrayProto = Array.prototype;
 
 // MatchFailure
@@ -5635,19 +5634,6 @@ MatchFailure.prototype.toString = function() {
   return 'match failure';
 };
 
-// MatchResult
-// -----------
-
-// A MatchResult is used to wrap an arbitrary value into a 'truthy' object
-// that can be returned from a Pattern's `match` method.
-function MatchResult(value) {
-  this.value = value;
-}
-
-MatchResult.prototype.toString = function() {
-  return '[MatchResult: ' + this.value + ']';
-};
-
 // Pattern
 // -------
 
@@ -5657,24 +5643,27 @@ function Pattern() {}
 // be called to initialize newly-created instances. All other properties in
 // `props` will be copied to the prototype of the new constructor.
 Pattern.extend = function(props) {
+  var proto = ctor.prototype = new Pattern();
+  for (var k in props) {
+    if (k !== 'init' && k != 'match') {
+      proto[k] = props[k];
+    }
+  }
+  ensure(typeof props.match === 'function', "Patterns must have a 'match' method");
+  proto._match = props.match;
+
   function ctor() {
     var self = this;
     if (!(self instanceof ctor)) {
-      self = new ctor();
+      self = Object.create(proto);
     }
     if ('init' in props) {
       props.init.apply(self, ArrayProto.slice.call(arguments));
     }
-    ensure(typeof self.match === 'function', "Patterns must have a 'match' method");
     ensure(typeof self.arity === 'number', "Patterns must have an 'arity' property");
     return self;
   }
-  var proto = ctor.prototype = new Pattern();
-  for (var k in props) {
-    if (k !== 'init') {
-      proto[k] = props[k];
-    }
-  }
+  ctor.fromArray = function(arr) { return ctor.apply(null, arr); };
   return ctor;
 };
 
@@ -5682,10 +5671,22 @@ Pattern.extend = function(props) {
 Pattern.prototype.performMatch = performMatch;
 Pattern.prototype.getArity = getArity;
 
+// Wraps the user-specified `match` function with some extra checks.
+Pattern.prototype.match = function(value, bindings) {
+  var bs = [];
+  var ans = this._match(value, bs);
+  if (ans) {
+    ensure(bs.length === this.arity,
+           'Inconsistent pattern arity: expected ' + this.arity + ', actual ' + bs.length);
+    bindings.push.apply(bindings, bs);
+  }
+  return ans;
+};
+
 // Types of pattern
 // ----------------
 
-var Is = Pattern.extend({
+Matcher.is = Pattern.extend({
   init: function(expectedValue) {
     this.expectedValue = expectedValue;
   },
@@ -5695,10 +5696,10 @@ var Is = Pattern.extend({
   }
 });
 
-var Iterable = Pattern.extend({
-  init: function(patterns) {
-    this.patterns = patterns;
-    this.arity = patterns
+Matcher.iterable = Pattern.extend({
+  init: function(/* pattern, ... */) {
+    this.patterns = ArrayProto.slice.call(arguments);
+    this.arity = this.patterns
       .map(function(pattern) { return getArity(pattern); })
       .reduce(function(a1, a2) { return a1 + a2; }, 0);
   },
@@ -5709,7 +5710,7 @@ var Iterable = Pattern.extend({
   }
 });
 
-var Many = Pattern.extend({
+Matcher.many = Pattern.extend({
   init: function(pattern) {
     this.pattern = pattern;
   },
@@ -5719,7 +5720,7 @@ var Many = Pattern.extend({
   }
 });
 
-var Opt = Pattern.extend({
+Matcher.opt = Pattern.extend({
   init: function(pattern) {
     this.pattern = pattern;
   },
@@ -5729,7 +5730,7 @@ var Opt = Pattern.extend({
   }
 });
 
-var Trans = Pattern.extend({
+Matcher.trans = Pattern.extend({
   init: function(pattern, func) {
     this.pattern = pattern;
     this.func = func;
@@ -5744,13 +5745,13 @@ var Trans = Pattern.extend({
     if (performMatch(value, this.pattern, bs)) {
       var ans = this.func.apply(this.thisObj, bs);
       bindings.push(ans);
-      return new MatchResult(ans);
+      return true;
     }
     return false;
   }
 });
 
-var When = Pattern.extend({
+Matcher.when = Pattern.extend({
   init: function(pattern, predicate) {
     this.pattern = pattern;
     this.predicate = predicate;
@@ -5771,11 +5772,11 @@ var When = Pattern.extend({
   }
 });
 
-var Or = Pattern.extend({
-  init: function(patterns) {
-    ensure(patterns.length >= 2, "'or' requires at least two patterns");
-    this.patterns = patterns;
-    this.arity = ensureUniformArity(patterns, 'or');
+Matcher.or = Pattern.extend({
+  init: function(/* p1, p2, ... */) {
+    ensure(arguments.length >= 1, "'or' requires at least one pattern");
+    this.patterns = ArrayProto.slice.call(arguments);
+    this.arity = ensureUniformArity(this.patterns, 'or');
   },
   match: function(value, bindings) {
     var patterns = this.patterns;
@@ -5784,14 +5785,14 @@ var Or = Pattern.extend({
       ans = performMatch(value, patterns[idx], bindings);
     }
     return ans;
-  }
+  },
 });
 
-var And = Pattern.extend({
-  init: function(patterns) {
-    ensure(patterns.length >= 2, "'and' requires at least two patterns");
-    this.patterns = patterns;
-    this.arity = patterns.reduce(function(sum, p) {
+Matcher.and = Pattern.extend({
+  init: function(/* p1, p2, ... */) {
+    ensure(arguments.length >= 1, "'and' requires at least one pattern");
+    this.patterns = ArrayProto.slice.call(arguments);
+    this.arity = this.patterns.reduce(function(sum, p) {
       return sum + getArity(p); },
     0);
   },
@@ -5816,14 +5817,14 @@ function _arrayMatch(value, pattern, bindings) {
   var pIdx = 0;
   while (pIdx < pattern.length) {
     var p = pattern[pIdx++];
-    if (p instanceof Many) {
+    if (p instanceof Matcher.many) {
       p = p.pattern;
       var vs = [];
       while (vIdx < value.length && performMatch(value[vIdx], p, vs)) {
         vIdx++;
       }
       bindings.push(vs);
-    } else if (p instanceof Opt) {
+    } else if (p instanceof Matcher.opt) {
       var ans = vIdx < value.length ? performMatch(value[vIdx], p.pattern, []) : false;
       if (ans) {
         bindings.push(ans);
@@ -5894,9 +5895,9 @@ function getArity(pattern) {
     return pattern
       .map(function(p) { return getArity(p); })
       .reduce(function(a1, a2) { return a1 + a2; }, 0);
-  } else if (typeof pattern === 'function' || pattern instanceof RegExp) {
+  } else if (pattern instanceof RegExp) {
     return 1;
-  } else if (typeof pattern === 'object') {
+  } else if (typeof pattern === 'object' && pattern !== null) {
     var ans = 0;
     for (var k in pattern) {
       if (pattern.hasOwnProperty(k)) {
@@ -5904,9 +5905,10 @@ function getArity(pattern) {
       }
     }
     return ans;
-  } else {
-    return 0;
+  } else if (typeof pattern === 'function') {
+    return 1;
   }
+  return 0;
 }
 
 function ensureUniformArity(patterns, op) {
@@ -5940,16 +5942,16 @@ Matcher.prototype.withThis = function(obj) {
 };
 
 Matcher.prototype.addCase = function(pattern, optFunc) {
-  this.patterns.push(optFunc ? Matcher.trans(pattern, optFunc) : pattern);
+  this.patterns.push(Matcher.trans(pattern, optFunc));
   return this;
 };
 
 Matcher.prototype.match = function(value) {
-  for (var idx = 0; idx < this.patterns.length; idx++) {
-    var ans = performMatch(value, this.patterns[idx], []);
-    if (ans) {
-      return ans instanceof MatchResult ? ans.value : value;
-    }
+  ensure(this.patterns.length > 0, 'Matcher requires at least one case');
+
+  var bindings = [];
+  if (Matcher.or.fromArray(this.patterns).match(value, bindings)) {
+    return bindings[0];
   }
   throw new MatchFailure(value, new Error().stack);
 };
@@ -5967,17 +5969,6 @@ Matcher.number = function(x) { return typeof x === 'number'; };
 Matcher.string = function(x) { return typeof x === 'string'; };
 Matcher.char   = function(x) { return typeof x === 'string' && x.length === 0; };
 
-// Combinators
-
-Matcher.is       = function(expectedValue)     { return new Is(expectedValue); };
-Matcher.iterable = function(/* p1, p2, ... */) { return new Iterable(ArrayProto.slice.call(arguments)); };
-Matcher.many     = function(pattern)           { return new Many(pattern); };
-Matcher.opt      = function(pattern)           { return new Opt(pattern); };
-Matcher.trans    = function(pattern, func)     { return new Trans(pattern, func); };
-Matcher.when     = function(pattern, pred)     { return new When(pattern, pred); };
-Matcher.or       = function(/* p1, p2, ... */) { return new Or(ArrayProto.slice.call(arguments)); };
-Matcher.and      = function(/* p1, p2, ... */) { return new And(ArrayProto.slice.call(arguments)); };
-
 // Operators
 
 Matcher.instanceOf = function(clazz) { return function(x) { return x instanceof clazz; }; };
@@ -5987,26 +5978,30 @@ Matcher.MatchFailure = MatchFailure;
 // Terse interface
 // ---------------
 
-function match(v /* , pat1, fun1, pat2, fun2, ... */) {
+function match(value /* , pat1, fun1, pat2, fun2, ... */) {
   var args = arguments;
-  // Allow calling w/ 2 args, where the second arg is an Array [p1, f1, ...].
-  if (args.length === 2 && Array.isArray(args[1])) {
-    args = [args[0]].concat(args[1]);
+
+  // When called with just a value and a pattern, return the bindings if
+  // the match was successful, otherwise null.
+  if (args.length === 2) {
+    var bindings = [];
+    if (performMatch(value, arguments[1], bindings)) {
+      return bindings;
+    }
+    return null;
   }
-  if (args.length % 2 !== 1) {
-    throw new Error('match called with invalid arguments');
-  }
+
+  ensure(
+      args.length > 2 && args.length % 2 === 1,
+      'match called with invalid arguments');
   var m = new Matcher();
   for (var idx = 1; idx < args.length; idx += 2) {
     var pattern = args[idx];
     var func = args[idx + 1];
     m.addCase(pattern, func);
   }
-  m.addCase(Matcher._, function(val) { return FAIL; });
-  return m.match(v);
+  return m.match(value);
 }
-
-match.FAIL = FAIL;
 
 // Exports
 // -------
