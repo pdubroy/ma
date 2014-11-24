@@ -230,6 +230,28 @@ test('deep reactions', function(t) {
   t.end();
 });
 
+test('reaction bindings', function(t) {
+  var vat = new Vat();
+
+  vat.addReaction(['hello', _], function(val, arg1, arg2) {
+    t.equal(val.get(0), 'hello');
+    t.equal(arg2, undefined);
+    return arg1;
+  });
+  vat.put(['hello', 'world']);
+  t.ok(vat.try_take('world'));
+  vat.put(['hello', 'goodbye']);
+  t.ok(vat.try_take('goodbye'));
+
+  vat.addReaction(['add', [_], _], function(val, arg1, arg2) {
+    return arg1 + arg2;
+  });
+  vat.put(['add', [3], 7]);
+  t.equal(vat.try_take(10), 10);
+
+  t.end();
+});
+
 // Ensure that an identity reaction won't just continuously trigger itself.
 // Disabled until I figure out the right solution for this.
 if (false) {

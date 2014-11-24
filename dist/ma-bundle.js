@@ -17,6 +17,9 @@ var assert = require('assert'),
 var pm = require('../third_party/pattern-match'),
     walk = require('tree-walk');
 
+var match = pm.match,
+    Pattern = pm.Pattern;
+
 var Reaction = Immutable.Record({ pattern: null, reaction: null }, 'Reaction');
 var Observer = Immutable.Record({ pattern: null, callback: null }, 'Observer');
 
@@ -27,11 +30,8 @@ var immutableWalker = walk(function(node) {
   return Immutable.Iterable.isIterable(node) ? node.toJS() : node;
 });
 
-// Private helpers
-// ---------------
-
 // Custom pattern for matching Immutable.Map and Immutable.Record objects.
-var immutableObj = pm.Pattern.extend({
+var immutableObj = Pattern.extend({
   init: function(objPattern, ctor) {
     this.objPattern = objPattern;
     this.ctor = ctor || Immutable.Map;
@@ -44,7 +44,7 @@ var immutableObj = pm.Pattern.extend({
 });
 
 // Custom pattern for matching Immutable.List objects.
-var immutableList = pm.Pattern.extend({
+var immutableList = Pattern.extend({
   init: function(arrPattern) {
     this.arrPattern = arrPattern;
     this.arity = this.getArity(arrPattern);
@@ -55,9 +55,8 @@ var immutableList = pm.Pattern.extend({
   }
 });
 
-function matches(value, pattern) {
-  return pm.match(value, pattern) !== null;
-}
+// Private helpers
+// ---------------
 
 function convertPattern(p) {
   return immutableWalker.reduce(p, function(memo, node, key, parent) {
@@ -74,11 +73,11 @@ function convertPattern(p) {
   });
 }
 
-// The equivalent of `indexOf` but using `matches` rather than ==.
+// The equivalent of `indexOf` but using `match` rather than ==.
 function find(arr, pattern) {
   var p = convertPattern(pattern);
   for (var i = 0; i < arr.size; ++i) {
-    if (matches(arr.get(i), p))
+    if (match(arr.get(i), p) !== null)
       return i;
   }
   return -1;
@@ -89,7 +88,7 @@ function findAll(arr, pattern) {
   var result = [];
   for (var i = 0; i < arr.size; ++i) {
     var value = arr.get(i);
-    if (matches(value, p))
+    if (match(value, p) !== null)
       result.push(value);
   }
   return result;
@@ -100,8 +99,10 @@ function findDeep(arr, pattern) {
   var path = [];
   for (var i = 0; i < arr.size; ++i) {
     path.push(i);
-    if (matchDeep(arr.get(i), p, path))
-      return path;
+    var root = arr.get(i);
+    var bindings;
+    if ((bindings = matchDeep(root, p, path)) !== null)
+      return { root: root, path: path, bindings: bindings };
     path.pop();
   }
   return null;
@@ -109,8 +110,9 @@ function findDeep(arr, pattern) {
 
 // Recursively tries to match `obj` with `pattern`.
 function matchDeep(obj, pattern, path) {
-  if (matches(obj, pattern))
-    return true;
+  var result;
+  if ((result = match(obj, pattern)) !== null)
+    return result;
 
   var isList = obj && Immutable.List.isList(obj);
   var isMap = obj && Immutable.Map.isMap(obj);
@@ -120,12 +122,12 @@ function matchDeep(obj, pattern, path) {
       var entry = it.next();
       if (entry.done) break;
       path.push(entry.value[0]);
-      if (matchDeep(entry.value[1], pattern, path))
-        return true;
+      if ((result = matchDeep(entry.value[1], pattern, path)) !== null)
+        return result;
       path.pop();
     }
   }
-  return false;
+  return null;
 }
 
 // Vat implementation
@@ -198,22 +200,22 @@ Vat.prototype._removeAt = function(index) {
 };
 
 Vat.prototype._tryReaction = function(r) {
-  var match = this._doWithoutHistory(function() {
-    return this.try_take(r.pattern, true);
+  var result = this._doWithoutHistory(function() {
+    return this._try_take_deep(r.pattern);
   });
-  if (!match) return;
-
-  var root = match[0], path = match[1];
+  if (!result) return;
 
   // Put the object back in the vat, replacing the matched part with the
   // result of the reaction function.
-  var result = root.updateIn(path, function() {
-    return r.reaction(root.getIn(path));
+  var root = result.root;
+  var newValue = root.updateIn(result.path, function() {
+    var value = root.getIn(result.path);
+    return r.reaction.apply(null, [value].concat(result.bindings));
   });
-  if (result === void 0)
+  if (newValue === void 0)
     throw new TypeError('Reactions must return a value');
-  if (result !== null)
-    this.put(result);
+  if (newValue !== null)
+    this.put(newValue);
 };
 
 Vat.prototype.put = function(obj) {
@@ -254,10 +256,19 @@ Vat.prototype.try_copy_all = function(pattern) {
   return findAll(this._store, pattern);
 };
 
+Vat.prototype._try_take_deep = function(pattern, deep) {
+  var result = findDeep(this._store, pattern);
+  if (result) {
+    this._removeAt(result.path.shift());
+    return result;
+  }
+  return null;
+};
+
 Vat.prototype.try_take = function(pattern, deep) {
   if (deep) {
-    var path = findDeep(this._store, pattern);
-    return path ? [this._removeAt(path.shift()), path] : null;
+    var result = this._try_take_deep(pattern);
+    return result ? [result.root, result.path] : null;
   }
   var i = find(this._store, pattern);
   return i >= 0 ? this._removeAt(i) : null;
