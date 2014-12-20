@@ -77,7 +77,7 @@ function convertPattern(p) {
 function find(arr, pattern) {
   var p = convertPattern(pattern);
   for (var i = 0; i < arr.size; ++i) {
-    if (match(arr.get(i), p) !== null)
+    if (match(arr.get(i).value, p) !== null)
       return i;
   }
   return -1;
@@ -87,7 +87,7 @@ function findAll(arr, pattern) {
   var p = convertPattern(pattern);
   var result = [];
   for (var i = 0; i < arr.size; ++i) {
-    var value = arr.get(i);
+    var value = arr.get(i).value;
     if (match(value, p) !== null)
       result.push(value);
   }
@@ -99,7 +99,7 @@ function findDeep(arr, pattern) {
   var path = [];
   for (var i = 0; i < arr.size; ++i) {
     path.push(i);
-    var root = arr.get(i);
+    var root = arr.get(i).value;
     var bindings;
     if ((bindings = matchDeep(root, p, path)) !== null)
       return { root: root, path: path, bindings: bindings };
@@ -192,7 +192,7 @@ Vat.prototype._tryOrWait = function(pattern, op, cb) {
 };
 
 Vat.prototype._removeAt = function(index) {
-  var result = this._store.get(index);
+  var result = this._store.get(index).value;
   this._updateStore(function() {
     return this._store.splice(index, 1);
   });
@@ -223,14 +223,14 @@ Vat.prototype._tryReaction = function(r) {
     this.put(newValue);
 };
 
-Vat.prototype.put = function(obj) {
+Vat.prototype.put = function(value) {
   // Copy the reactions before updating the store, as a reaction shouldn't be
   // able to immediately react to itself.
   var observers = this.try_copy_all(instanceOf(Observer));
   var reactions = this.try_copy_all(instanceOf(Reaction));
 
   // Update the store.
-  var storedObj = Immutable.fromJS(obj);
+  var storedObj = { value: Immutable.fromJS(value) };
   this._updateStore(function() {
     return this._store.push(storedObj);
   });
@@ -250,7 +250,7 @@ Vat.prototype.put = function(obj) {
 
 Vat.prototype.try_copy = function(pattern) {
   var i = find(this._store, pattern);
-  return i >= 0 ? this._store.get(i) : null;
+  return i >= 0 ? this._store.get(i).value : null;
 };
 
 Vat.prototype.copy = function(pattern, cb) {
