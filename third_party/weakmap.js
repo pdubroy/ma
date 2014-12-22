@@ -43,6 +43,6 @@ if (typeof WeakMap === 'undefined') {
       }
     };
 
-    this.WeakMap = WeakMap;
+    (typeof window === 'undefined' ? global : window).WeakMap = WeakMap;
   })();
 }

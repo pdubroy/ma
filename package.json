@@ -4,14 +4,15 @@
   "author": "Patrick Dubroy <pdubroy@gmail.com> (http://dubroy.com)",
   "license": "MIT",
   "dependencies": {
+    "6to5": "^1.15.0",
     "immutable": "^3.0.2",
     "tree-walk": "^0.2.2"
   },
   "devDependencies": {
+    "6to5ify": "^2.0.0",
     "beefy": "^2.1.1",
     "browserify": "^5.9.1",
     "dirwatch": "^1.1.0",
-    "es6ify": "^1.4.0",
     "jshint": "^2.5.2",
     "tap-spec": "^1.0.1",
     "tape": "^2.13.4",
@@ -20,9 +21,9 @@
     "watchify": "^1.0.6"
   },
   "scripts": {
-    "build": "browserify -s ma -o dist/ma-bundle.js index.js",
-    "watch": "watchify -s ma -o dist/ma-bundle.js index.js",
-    "demo": "beefy examples/calc/index.js -- -d -t es6ify",
+    "build": "browserify -t 6to5ify -s ma -o dist/ma-bundle.js index.js",
+    "watch": "watchify -v -t 6to5ify -s ma -o dist/ma-bundle.js index.js",
+    "demo": "beefy examples/calc/index.js -- -d -t 6to5ify",
     "test": "tape test/*.js | tap-spec",
     "test-continuous": "npm test; dirwatch *.js lib/*.js test/*.js -c 'which tput && tput clear; date; tape test/*.js' | tap-spec",
     "prepublish": "npm run build && npm run test && npm run lint",
