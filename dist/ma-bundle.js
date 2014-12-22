@@ -12,15 +12,16 @@ module.exports = {
 var assert = require('assert'),
     EventEmitter = require('events').EventEmitter,
     Immutable = require('immutable'),
-    util = require('util');
-
-var pm = require('../third_party/pattern-match'),
+    util = require('util'),
     walk = require('tree-walk');
+
+var pm = require('../third_party/pattern-match');
+require('../third_party/weakmap.js');
 
 var match = pm.match,
     Pattern = pm.Pattern;
 
-var Reaction = Immutable.Record({ pattern: null, reaction: null }, 'Reaction');
+var Reaction = Immutable.Record({ pattern: null, callback: null }, 'Reaction');
 var Observer = Immutable.Record({ pattern: null, callback: null }, 'Observer');
 
 var instanceOf = pm.Matcher.instanceOf;
@@ -94,10 +95,10 @@ function findAll(arr, pattern) {
   return result;
 }
 
-function findDeep(arr, pattern) {
+function findDeep(arr, pattern, optStart) {
   var p = convertPattern(pattern);
   var path = [];
-  for (var i = 0; i < arr.size; ++i) {
+  for (var i = optStart || 0; i < arr.size; ++i) {
     path.push(i);
     var root = arr.get(i).value;
     var bindings;
@@ -200,22 +201,41 @@ Vat.prototype._removeAt = function(index) {
 };
 
 Vat.prototype._tryReaction = function(r) {
+  // Prevent this reaction from matching against objects it's already matched.
+  var self = this;
+  function accept(match) {
+    var record = self._store.get(match.path[0]);
+    if (!record.reactions.has(r)) {
+      record.reactions.set(r, true);
+      return true;
+    }
+  }
   var result = this._doWithoutHistory(function() {
-    return this._try_take_deep(r.pattern);
+    if (r instanceof Reaction)
+      return this._try_take_deep(r.pattern, accept);
+
+    var match = this._try_copy_deep(r.pattern);
+    return accept(match) ? match : null;
   });
   if (!result) return;
 
-  var arity = r.reaction.length;
+  var arity = r.callback.length;
   var expectedArity = result.bindings.length + 1;
   assert(arity === expectedArity,
       'Bad function arity: expected ' + expectedArity + ', got ' + arity);
 
+  var root = result.root;
+  var value = root.getIn(result.path);
+
+  if (r instanceof Observer) {
+    r.callback.apply(null, [value].concat(result.bindings));
+    return;
+  }
+
   // Put the object back in the vat, replacing the matched part with the
   // result of the reaction function.
-  var root = result.root;
   var newValue = root.updateIn(result.path, function() {
-    var value = root.getIn(result.path);
-    return r.reaction.apply(null, [value].concat(result.bindings));
+    return r.callback.apply(null, [value].concat(result.bindings));
   });
   if (newValue === void 0)
     throw new TypeError('Reactions must return a value');
@@ -230,7 +250,10 @@ Vat.prototype.put = function(value) {
   var reactions = this.try_copy_all(instanceOf(Reaction));
 
   // Update the store.
-  var storedObj = { value: Immutable.fromJS(value) };
+  var storedObj = {
+    value: Immutable.fromJS(value),
+    reactions: new WeakMap()
+  };
   this._updateStore(function() {
     return this._store.push(storedObj);
   });
@@ -244,8 +267,8 @@ Vat.prototype.put = function(value) {
 
   // TODO: A blocking take/copy is basically a one-time observer. They should
   // be implemented in the same way.
-  observers.forEach(function(o) { self._try(o.pattern, 'copy', o.callback); });
-  reactions.forEach(this._tryReaction.bind(this));
+  observers.forEach(this._tryReaction, this);
+  reactions.forEach(this._tryReaction, this);
 };
 
 Vat.prototype.try_copy = function(pattern) {
@@ -261,13 +284,25 @@ Vat.prototype.try_copy_all = function(pattern) {
   return findAll(this._store, pattern);
 };
 
-Vat.prototype._try_take_deep = function(pattern, deep) {
-  var result = findDeep(this._store, pattern);
-  if (result) {
-    this._removeAt(result.path.shift());
-    return result;
+Vat.prototype._try_take_deep = function(pattern, test) {
+  var start = 0, result;
+  while (true) {
+    if (!(result = findDeep(this._store, pattern, start)))
+      break;
+
+    if (!test || test(result)) {
+      this._removeAt(result.path.shift());
+      return result;
+    }
+    start = result.path[0] + 1;
   }
   return null;
+};
+
+Vat.prototype._try_copy_deep = function(pattern) {
+  var result;
+  this._try_take_deep(pattern, function(match) { result = match; });
+  return result;
 };
 
 Vat.prototype.try_take = function(pattern, deep) {
@@ -287,7 +322,7 @@ Vat.prototype.take = function(pattern, cb) {
 // time the tuple space changes. If the `reaction` function produces a result,
 // the result is put into the tuple space.
 Vat.prototype.addReaction = function(pattern, reaction) {
-  this.put(new Reaction({ pattern: pattern, reaction: reaction }));
+  this.put(new Reaction({ pattern: pattern, callback: reaction }));
 };
 
 Vat.prototype.addObserver = function(pattern, cb) {
@@ -296,7 +331,6 @@ Vat.prototype.addObserver = function(pattern, cb) {
 
 Vat.prototype.update = function(pattern, cb) {
   var self = this;
-  this._tryOrWait(pattern, 'copy', cb);
   this.take(pattern, function(match) {
     self.put(cb(match));
   });
@@ -315,7 +349,7 @@ Vat.Observer = Observer;
 
 module.exports = Vat;
 
-},{"../third_party/pattern-match":13,"assert":3,"events":4,"immutable":9,"tree-walk":10,"util":8}],3:[function(require,module,exports){
+},{"../third_party/pattern-match":13,"../third_party/weakmap.js":14,"assert":3,"events":4,"immutable":9,"tree-walk":10,"util":8}],3:[function(require,module,exports){
 // http://wiki.commonjs.org/wiki/Unit_Testing/1.0
 //
 // THIS IS NOT TESTED NOR LIKELY TO WORK OUTSIDE V8!
@@ -6130,5 +6164,55 @@ module.exports = {
 
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{}],14:[function(require,module,exports){
+// Based on https://github.com/Polymer/WeakMap/blob/c4685a9e3a579c253ccf8e7379c047c3a1f99106/weakmap.js
+
+/*
+ * Copyright 2012 The Polymer Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style
+ * license that can be found in the LICENSE file.
+ */
+
+if (typeof WeakMap === 'undefined') {
+  (function() {
+    var defineProperty = Object.defineProperty;
+    var counter = Date.now() % 1e9;
+
+    var WeakMap = function() {
+      this.name = '__st' + (Math.random() * 1e9 >>> 0) + (counter++ + '__');
+    };
+
+    WeakMap.prototype = {
+      set: function(key, value) {
+        var entry = key[this.name];
+        if (entry && entry[0] === key)
+          entry[1] = value;
+        else
+          defineProperty(key, this.name, {value: [key, value], writable: true});
+        return this;
+      },
+      get: function(key) {
+        var entry;
+        return (entry = key[this.name]) && entry[0] === key ?
+            entry[1] : undefined;
+      },
+      delete: function(key) {
+        var entry = key[this.name];
+        if (!entry) return false;
+        var hasValue = entry[0] === key;
+        entry[0] = entry[1] = undefined;
+        return hasValue;
+      },
+      has: function(key) {
+        var entry = key[this.name];
+        if (!entry) return false;
+        return entry[0] === key;
+      }
+    };
+
+    this.WeakMap = WeakMap;
+  })();
+}
+
 },{}]},{},[1])(1)
 });

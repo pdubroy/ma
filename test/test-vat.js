@@ -15,10 +15,6 @@ function isNumber(x) {
   return Object.prototype.toString.call(x) === '[object Number]';
 }
 
-function identity(x) {
-  return x;
-}
-
 // Tests
 // -----
 
@@ -250,20 +246,26 @@ test('reaction bindings', function(t) {
   t.end();
 });
 
-// Ensure that an identity reaction won't just continuously trigger itself.
-// Disabled until I figure out the right solution for this.
-if (false) {
-  test('fairness', function(t) {
-    var vat = new Vat();
-    vat.addReaction([_, _], identity);
-    vat.addReaction([isNumber, isNumber], function(match) {
-      return [match.get(0) * match.get(1)];
-    });
+test('observer triggering', function(t) {
+  var count = 0;
+  var vat = new Vat();
 
-    vat.put([3, 7]);
-    var match = vat.try_take([_]);
-    t.ok(match);
-    t.equal(match.get(0), 21);
-    t.end();
-  });
-}
+  // An observer which increments a counter each time it fires.
+  vat.addObserver(['x', _], function(t, x) { ++count; });
+
+  vat.put(['x', 0]);
+  t.equal(count, 1, 'observer was triggered');
+  vat.put(99);
+  t.equal(count, 1, 'observer was not triggered again');
+
+  vat.put(['x', 6]);
+  t.equal(count, 2, 'observer triggered once more');
+
+  t.ok(vat.try_take([_, _]));
+  t.equal(count, 2, 'observer not triggered');
+
+  t.ok(vat.try_take([_, _]));
+  t.equal(count, 2, 'observer not triggered');
+
+  t.end();
+});
