@@ -75,24 +75,13 @@ function convertPattern(p) {
 }
 
 // The equivalent of `indexOf` but using `match` rather than ==.
-function find(arr, pattern) {
+function find(arr, pattern, optStart) {
   var p = convertPattern(pattern);
-  for (var i = 0; i < arr.size; ++i) {
+  for (var i = optStart || 0; i < arr.size; ++i) {
     if (match(arr.get(i).value, p) !== null)
       return i;
   }
   return -1;
-}
-
-function findAll(arr, pattern) {
-  var p = convertPattern(pattern);
-  var result = [];
-  for (var i = 0; i < arr.size; ++i) {
-    var value = arr.get(i).value;
-    if (match(value, p) !== null)
-      result.push(value);
-  }
-  return result;
 }
 
 function findDeep(arr, pattern, optStart) {
@@ -281,7 +270,13 @@ Vat.prototype.copy = function(pattern, cb) {
 };
 
 Vat.prototype.try_copy_all = function(pattern) {
-  return findAll(this._store, pattern);
+  var result = [];
+  var i = 0;
+  while ((i = find(this._store, pattern, i)) !== -1) {
+    result.push(this._store.get(i).value);
+    ++i;
+  }
+  return result;
 };
 
 Vat.prototype._try_take_deep = function(pattern, test) {
