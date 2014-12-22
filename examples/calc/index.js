@@ -5,7 +5,7 @@ var createElement = require('virtual-dom/create-element'),
     underscore = require('underscore');
 
 var ma = require('../../');
-var Vat = ma.Vat
+var Vat = ma.Vat;
 
 var _ = ma.match.ANY;
 var $ = document.querySelector.bind(document);
@@ -19,11 +19,12 @@ function isNumber(x) {
 }
 
 function stringify(obj) {
-  if (Immutable.List.isList(obj))
-    return obj.__toString('[', ']');
-  else if (Immutable.Map.isMap(obj))
-    return obj.__toString('{', '}');
-  return String(obj);
+  var value = obj.value;
+  if (Immutable.List.isList(value))
+    return value.__toString('[', ']');
+  else if (Immutable.Map.isMap(value))
+    return value.__toString('{', '}');
+  return String(value);
 }
 
 function clamp(val, lo, hi) {
@@ -68,7 +69,7 @@ function render(stateTuple) {
   var tuples;
 
   if (historyStore.has(which)) {
-    tuples = historyStore.get(which);
+    tuples = historyStore.get(which).value;
   } else {
     console.error('invalid history index:', which);
     tuples = vat.try_copy_all(_);
@@ -122,7 +123,7 @@ function addTuple(vat) {
   var state = new Vat();
   var view;
 
-  function updateView(stateTuple) {
+  function updateView(stateTuple, vat, selectedIndex) {
     if (view)
       view.update(stateTuple);
     else

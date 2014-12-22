@@ -1,7 +1,7 @@
 'use strict';
 
-require("6to5/register");
-require("6to5/polyfill");
+require('6to5/polyfill');
+require('6to5/register');
 
 module.exports = {
   Vat: require('./lib/vat'),

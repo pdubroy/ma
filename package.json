@@ -21,9 +21,9 @@
     "watchify": "^1.0.6"
   },
   "scripts": {
-    "build": "browserify -t 6to5ify -s ma -o dist/ma-bundle.js index.js",
-    "watch": "watchify -v -t 6to5ify -s ma -o dist/ma-bundle.js index.js",
-    "demo": "beefy examples/calc/index.js -- -d -t 6to5ify",
+    "build": "browserify -d -i 6to5/register -s ma -o dist/ma-bundle.js .",
+    "watch": "watchify -v -d -i 6to5/register -s ma -o dist/ma-bundle.js .",
+    "demo": "beefy examples/calc/index.js -- -d -i 6to5/register",
     "test": "tape test/*.js | tap-spec",
     "test-continuous": "npm test; dirwatch *.js lib/*.js test/*.js -c 'which tput && tput clear; date; tape test/*.js' | tap-spec",
     "prepublish": "npm run build && npm run test && npm run lint",
@@ -33,5 +33,8 @@
   "main": "index.js",
   "directories": {
     "test": "test"
+  },
+  "browserify": {
+    "transform": [ "6to5ify" ]
   }
 }
