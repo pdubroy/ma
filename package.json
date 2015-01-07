@@ -35,6 +35,8 @@
     "test": "test"
   },
   "browserify": {
-    "transform": [ "6to5ify" ]
+    "transform": [
+      "6to5ify"
+    ]
   }
 }

@@ -1,6 +1,6 @@
 {
-  "undef": true,
-  "unused": "vars",
   "node": true,
-  "predef": []
+  "predef": [],
+  "undef": true,
+  "unused": "vars"
 }

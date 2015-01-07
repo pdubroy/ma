@@ -15,6 +15,17 @@ function isNumber(x) {
   return Object.prototype.toString.call(x) === '[object Number]';
 }
 
+function odd(x) {
+  return x % 2 === 1;
+}
+
+function even(x) {
+  return x % 2 === 0;
+}
+
+function noop2(val, v1) {}
+function noop3(val, v1, v2) {}
+
 // Tests
 // -----
 
@@ -266,6 +277,19 @@ test('observer triggering', function(t) {
 
   t.ok(vat.try_take([_, _]));
   t.equal(count, 2, 'observer not triggered');
+
+  t.end();
+});
+
+test('error on conflict', function(t) {
+  var vat = new Vat();
+
+  vat.addObserver(odd, noop2);
+  vat.addObserver(even, noop2);
+  vat.put([1, 2]);  // Should not conflict.
+
+  vat.addObserver([_, _], noop3);
+  t.throws(function() { vat.put([2, 3]); }, /conflict/);
 
   t.end();
 });
