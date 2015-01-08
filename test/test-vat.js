@@ -209,11 +209,13 @@ test('reactions', function(t) {
   t.ok(vat.try_copy([0, 0, 0, 16]));
 
   // Test that Immutable.List instances work as return values, not only Arrays.
-  vat.addReaction(['test'], function(t) {
+  var r = vat.addReaction(['test'], function(t) {
     return t.push('yes');
   });
   vat.put(['test']);
   t.ok(vat.try_take(['test', 'yes']));
+
+  t.equal(vat.try_take(r), r, 'reaction can be removed with `take`');
 
   t.end();
 });
