@@ -293,5 +293,10 @@ test('error on conflict', function(t) {
   vat.addObserver([_, _], noop3);
   t.throws(function() { vat.put([2, 3]); }, /conflict/);
 
+  vat = new Vat();
+  vat.addObserver(isNumber, noop2);
+  vat.addObserver(even, noop2);
+  t.throws(function() { vat.put(2); }, /conflict/);
+
   t.end();
 });
