@@ -16,15 +16,19 @@ function isNumber(x) {
 }
 
 function odd(x) {
-  return x % 2 === 1;
+  return isNumber(x) && (x % 2 === 1);
 }
 
 function even(x) {
-  return x % 2 === 0;
+  return isNumber(x) && (x % 2 === 0);
 }
 
 function noop2(val, v1) {}
 function noop3(val, v1, v2) {}
+
+function always2(result) {
+  return function (val, v1) { return result; };
+}
 
 // Tests
 // -----
@@ -286,17 +290,25 @@ test('observer triggering', function(t) {
 test('error on conflict', function(t) {
   var vat = new Vat();
 
-  vat.addObserver(odd, noop2);
-  vat.addObserver(even, noop2);
+  vat.addReaction(odd, always2(null));
+  vat.addReaction(even, always2(null));
   vat.put([1, 2]);  // Should not conflict.
 
   vat.addObserver([_, _], noop3);
-  t.throws(function() { vat.put([2, 3]); }, /conflict/);
+  t.throws(function() { vat.put([2, 3]); }, /conflict/, 'observer conflicts with reactions');
 
   vat = new Vat();
   vat.addObserver(isNumber, noop2);
   vat.addObserver(even, noop2);
-  t.throws(function() { vat.put(2); }, /conflict/);
+  vat.put(2);  // No conflict for two observers.
+
+  vat.addReaction(odd, always2(null));
+  t.throws(function() { vat.put(1); }, /conflict/, 'reaction conflicts with observer');
+
+  vat = new Vat();
+  vat.addReaction(isNumber, always2(null));
+  vat.addReaction(odd, always2(null));
+  t.throws(function() { vat.put(1); }, /conflict/, 'reaction conflicts with other reaction');
 
   t.end();
 });
