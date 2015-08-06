@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv='Content-type' content='text/html; charset=utf-8'>
+    <title>Basic Example with JSX and ES6 features</title>
+  </head>
+  <body>
+    <div id="container">
+      <p>If you can see this, React is not working right.</p>
+    </div>
+    <script src="third_party/react-0.13.3/react.js"></script>
+    <script src="third_party/react-0.13.3/JSXTransformer.js"></script>
+    <script src="../../dist/ma-bundle.js"></script>
+    <script type="text/jsx;harmony=true">
+      var _ = ma.match.ANY;
+
+      class VatView extends React.Component {
+        render() {
+          var contents = this.props.vat.try_copy_all(_);
+          return <p>{contents.length} items in the vat.</p>;
+        }
+      }
+
+      var vat = new ma.Vat();
+      vat.addObserver(_, function(t, x) { console.log(x); });
+      vat.put({ hey: 'there' });
+
+      var start = new Date().getTime();
+      React.render(
+        <VatView vat={vat} />,
+        document.getElementById('container')
+      );
+      // TODO:
+      // - Need to be able to observe deletions somehow.
+      //   - some kind of "meta" property? E.g. _:removed
+      //   - or, a "meta-vat" where events are logged?
+      //   - some other way of dealing with these events?
+      // - Need to be able to do a take_all in an observer/reaction.
+      // - Move reactions/observers out of the main tuple space.
+    </script>
+  </body>
+</html>
