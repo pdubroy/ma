@@ -120,9 +120,17 @@ test('partial matching of records', function(t) {
 
 test('predicates', function(t) {
   var vat = new Vat();
+
+  vat.put(3);
+  t.ok(vat.try_take(isNumber), 'taking a raw value using a predicate');
+
+  vat.put('foo');
+  t.notOk(vat.try_take(isNumber), 'non-matching value is not taken');
+
   vat.put(['a']);
   t.notOk(vat.try_copy([isNumber]));
   t.ok(vat.try_copy([_]));
+
   vat.put([1]);
   t.ok(vat.try_copy([isNumber]));
 
@@ -189,6 +197,17 @@ test('deep matching with maps', function(t) {
   t.end();
 });
 
+test('ordering of reactions and values', function(t) {
+  var vat = new Vat();
+  vat.put({});
+
+  t.plan(1);
+  vat.addReaction(_, function(tup, x) {
+    t.pass('reaction fires immediately');
+    return null;
+  });
+  t.end();
+});
 
 test('reactions', function(t) {
   var vat = new Vat();
@@ -207,19 +226,20 @@ test('reactions', function(t) {
   var id = '@@foo';
   vat.put([0, 0, id, 0]);
   vat.put([id, '+', 13, 3]);
-  t.ok(vat.try_copy([0, 0, 16, 0]));
+  t.ok(vat.try_copy([0, 0, 16, 0]), "'+' reaction fires");
 
   vat.put([0, 0, 0, id]);
   t.ok(vat.try_copy([0, 0, 0, 16]));
 
   // Test that Immutable.List instances work as return values, not only Arrays.
-  var r = vat.addReaction(['test'], function(t) {
+  vat.addReaction(['test'], function(t) {
     return t.push('yes');
   });
   vat.put(['test']);
   t.ok(vat.try_take(['test', 'yes']));
 
-  t.equal(vat.try_take(r), r, 'reaction can be removed with `take`');
+// TODO: Re-enable when we figure out where reactions should live.
+//  t.equal(vat.try_take(r), r, 'reaction can be removed with `take`');
 
   t.end();
 });
