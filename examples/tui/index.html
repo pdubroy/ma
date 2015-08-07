@@ -3,6 +3,20 @@
   <head>
     <meta http-equiv='Content-type' content='text/html; charset=utf-8'>
     <title>Basic Example with JSX and ES6 features</title>
+    <style>
+      .vat {
+        border-radius: 2px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+        padding: 10px;
+      }
+
+      .item {
+        border: 1px solid #ddd;
+        display: inline-block;
+        margin: 4px;
+        padding: 4px;
+      }
+    </style>
   </head>
   <body>
     <div id="container">
@@ -14,29 +28,16 @@
     <script type="text/jsx;harmony=true">
       var _ = ma.match.ANY;
 
-      var vatStyle = {
-        borderRadius: '2px',
-        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.4)',
-        padding: '10px'
-      };
-
-      var itemStyle = {
-        border: '1px solid #ddd',
-        display: 'inline-block',
-        margin: '4px',
-        padding: '4px'
-      };
-
       class VatView extends React.Component {
         render() {
           var items = this.props.vat.try_copy_all(_);
-          return <div style={vatStyle}>{items.map((x) => <VatItem value={x} />)}</div>;
+          return <div className="vat">{items.map((x) => <VatItem value={x} />)}</div>;
         }
       }
 
       class VatItem extends React.Component {
         render() {
-          return <div style={itemStyle}>{JSON.stringify(this.props.value.toJS())}</div>;
+          return <div className="item">{JSON.stringify(this.props.value.toJS())}</div>;
         }
       }
 
@@ -49,6 +50,7 @@
         <VatView vat={vat} />,
         document.getElementById('container')
       );
+
       // TODO:
       // - Need to be able to observe deletions somehow.
       //   - some kind of "meta" property? E.g. _:removed
