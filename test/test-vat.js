@@ -52,7 +52,14 @@ test('basic put, try_copy, and try_take with tuples', function(t) {
 
   vat.put(tuple);
   t.ok(t2 = vat.try_copy(tuple));
-  t.ok(vat.try_take(tuple), 'result try_copy can be re-used as a pattern');
+  t.ok(vat.try_take(tuple), 'result of try_copy can be re-used as a pattern');
+
+  t.deepEqual(vat.try_take_all(_), [], 'try_take_all');
+  vat.put(1);
+  t.deepEqual(vat.try_take_all(isNumber), [1], 'try_take_all, one match');
+  vat.put(2);
+  vat.put(3);
+  t.deepEqual(vat.try_take_all(isNumber), [2, 3], 'try_take_all, two matches');
 
   t.end();
 });
@@ -184,6 +191,12 @@ test('deep matching', function(t) {
   t.ok(Immutable.is(result[0], Immutable.fromJS(tup)));
   var path = result[1];
   t.deepEqual(path, [1]);
+
+  vat.put([[0], [1]]);
+  result = vat.try_take_all([_], true);
+  t.equal(result[0][0], result[1][0], 'root object is the same in both');
+  t.deepEqual(result[0][1], [0], 'path to first match is [0]');
+  t.deepEqual(result[1][1], [1], 'path to second match is [1]');
 
   t.end();
 });
