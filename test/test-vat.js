@@ -3,6 +3,7 @@
 var Immutable = require('immutable'),
     test = require('tape');
 
+require('babel/register');
 var ma = require('..');
 
 var Vat = ma.Vat;

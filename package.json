@@ -4,12 +4,12 @@
   "author": "Patrick Dubroy <pdubroy@gmail.com> (http://dubroy.com)",
   "license": "MIT",
   "dependencies": {
-    "6to5": "^1.15.0",
     "immutable": "^3.0.2",
     "tree-walk": "^0.2.2"
   },
   "devDependencies": {
-    "6to5ify": "^2.0.0",
+    "babel": "^5.8.21",
+    "babelify": "^6.1.3",
     "beefy": "^2.1.1",
     "browserify": "^5.9.1",
     "dirwatch": "^1.1.0",
@@ -21,8 +21,8 @@
     "watchify": "^1.0.6"
   },
   "scripts": {
-    "build": "browserify -d -i 6to5/register -s ma -o dist/ma-bundle.js .",
-    "watch": "watchify -v -d -i 6to5/register -s ma -o dist/ma-bundle.js .",
+    "build": "browserify -t [ babelify --ignore pattern-match ] -s ma -o dist/ma-bundle.js .",
+    "watch": "watchify -v -d -t [ babelify --ignore pattern-match ] -s ma -o dist/ma-bundle.js .",
     "demo": "beefy examples/calc/index.js -- -d -i 6to5/register",
     "test": "tape test/*.js | tap-spec",
     "test-continuous": "npm test; dirwatch *.js lib/*.js test/*.js -c 'which tput && tput clear; date; tape test/*.js' | tap-spec",
@@ -36,7 +36,7 @@
   },
   "browserify": {
     "transform": [
-      "6to5ify"
+      "babelify"
     ]
   }
 }
