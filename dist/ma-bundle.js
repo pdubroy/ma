@@ -103,11 +103,53 @@ var _slicedToArray = (function () {
   };
 })();
 
+var _createClass = (function () {
+  function defineProperties(target, props) {
+    for (var i = 0; i < props.length; i++) {
+      var descriptor = props[i];descriptor.enumerable = descriptor.enumerable || false;descriptor.configurable = true;if ('value' in descriptor) descriptor.writable = true;Object.defineProperty(target, descriptor.key, descriptor);
+    }
+  }return function (Constructor, protoProps, staticProps) {
+    if (protoProps) defineProperties(Constructor.prototype, protoProps);if (staticProps) defineProperties(Constructor, staticProps);return Constructor;
+  };
+})();
+
+var _get = function get(_x2, _x3, _x4) {
+  var _again = true;_function: while (_again) {
+    var object = _x2,
+        property = _x3,
+        receiver = _x4;desc = parent = getter = undefined;_again = false;if (object === null) object = Function.prototype;var desc = Object.getOwnPropertyDescriptor(object, property);if (desc === undefined) {
+      var parent = Object.getPrototypeOf(object);if (parent === null) {
+        return undefined;
+      } else {
+        _x2 = parent;_x3 = property;_x4 = receiver;_again = true;continue _function;
+      }
+    } else if ('value' in desc) {
+      return desc.value;
+    } else {
+      var getter = desc.get;if (getter === undefined) {
+        return undefined;
+      }return getter.call(receiver);
+    }
+  }
+};
+
 var marked0$0 = [getMatches, getDeepMatches, matchDeep].map(regeneratorRuntime.mark);
+
+function _classCallCheck(instance, Constructor) {
+  if (!(instance instanceof Constructor)) {
+    throw new TypeError('Cannot call a class as a function');
+  }
+}
+
+function _inherits(subClass, superClass) {
+  if (typeof superClass !== 'function' && superClass !== null) {
+    throw new TypeError('Super expression must either be null or a function, not ' + typeof superClass);
+  }subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } });if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass;
+}
+
 var assert = require('assert'),
     EventEmitter = require('events').EventEmitter,
     Immutable = require('immutable'),
-    util = require('util'),
     walk = require('tree-walk');
 
 var pm = require('../third_party/pattern-match'),
@@ -415,390 +457,427 @@ function areReactionsConflicting(r1, r2) {
 
 // A Vat is a tuple-space like thing. Eventually, I'd like to support objects
 // and not just tuples, and 'object space' is such a boring name.
-function Vat() {
-  this._init();
 
-  // Store this Vat's history in a Vat, but stop the recursion there -- don't
-  // keep a history of the history.
-  this._history = Object.create(Vat.prototype);
-  this._history._init();
-  this._history.put(this._store);
-}
+var Vat = (function (_EventEmitter) {
+  _inherits(Vat, _EventEmitter);
 
-util.inherits(Vat, EventEmitter);
+  function Vat() {
+    _classCallCheck(this, Vat);
 
-Vat.prototype._init = function () {
-  this._store = Immutable.List();
-  this._waiting = [];
-  this._reactions = [];
-  this._observers = [];
-};
+    _get(Object.getPrototypeOf(Vat.prototype), 'constructor', this).call(this);
+    this._init();
 
-Vat.prototype._updateStore = function (updateFn) {
-  this._store = updateFn.call(this);
-  if (this._history) {
+    // Store this Vat's history in a Vat, but stop the recursion there -- don't
+    // keep a history of the history.
+    this._history = Object.create(Vat.prototype);
+    this._history._init();
     this._history.put(this._store);
-
-    // TODO: Get rid of change events entirely.
-    this.emit('change');
   }
-};
 
-Vat.prototype._doWithoutHistory = function (fn) {
-  var hist = this._history;
-  this._history = null;
-  try {
-    return fn.call(this);
-  } finally {
-    this._history = hist;
-  }
-};
+  // Exports
+  // -------
 
-Vat.prototype._try = function (pattern, op, cb) {
-  var result = this['try_' + op].call(this, pattern);
-  if (result) {
-    cb(result);
-    return true;
-  }
-  return false;
-};
+  _createClass(Vat, [{
+    key: '_init',
+    value: function _init() {
+      this._store = Immutable.List();
+      this._waiting = [];
+      this._reactions = [];
+      this._observers = [];
+    }
+  }, {
+    key: '_updateStore',
+    value: function _updateStore(updateFn) {
+      this._store = updateFn.call(this);
+      if (this._history) {
+        this._history.put(this._store);
 
-Vat.prototype._tryOrWait = function (pattern, op, cb) {
-  if (!this._try(pattern, op, cb)) {
-    this._waiting.push({
-      pattern: pattern,
-      op: op,
-      callback: cb
-    });
-  }
-};
-
-// Removes the element at `index` from the store, and returns its value.
-Vat.prototype._removeAt = function (index) {
-  var _this = this;
-
-  var result = this._store.get(index).value;
-  this._updateStore(function () {
-    return _this._store.splice(index, 1);
-  });
-  return result;
-};
-
-// Like `_removeAt`, but removes elements from every index given in `arr`,
-// and returns an Array of values. The indices in `arr` can be in any order
-// and may contain duplicates.
-Vat.prototype._removeAll = function (arr) {
-  var _this2 = this;
-
-  var result = arr.map(function (i) {
-    return _this2._store.get(i).value;
-  });
-  this._updateStore(function () {
-    var store = _this2._store;
-    var indices = arr.slice().sort(function (a, b) {
-      return b - a;
-    });
-    var prevIndex;
-    var _iteratorNormalCompletion3 = true;
-    var _didIteratorError3 = false;
-    var _iteratorError3 = undefined;
-
-    try {
-      for (var _iterator3 = indices[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
-        var i = _step3.value;
-
-        if (i !== prevIndex) {
-          store = store.splice(i, 1);
-        }
-        prevIndex = i;
+        // TODO: Get rid of change events entirely.
+        this.emit('change');
       }
-    } catch (err) {
-      _didIteratorError3 = true;
-      _iteratorError3 = err;
-    } finally {
+    }
+  }, {
+    key: '_doWithoutHistory',
+    value: function _doWithoutHistory(fn) {
+      var hist = this._history;
+      this._history = null;
       try {
-        if (!_iteratorNormalCompletion3 && _iterator3['return']) {
-          _iterator3['return']();
-        }
+        return fn.call(this);
       } finally {
-        if (_didIteratorError3) {
-          throw _iteratorError3;
-        }
+        this._history = hist;
       }
     }
-
-    return store;
-  });
-  return result;
-};
-
-Vat.prototype._collectReactionCandidates = function () {
-  var _ref,
-      _this3 = this;
-
-  var candidates = [];
-  (_ref = []).concat.apply(_ref, arguments).forEach(function (r) {
-    if (r instanceof MultiReaction) {
-      // HACK: Don't add MultiReactions to candidates -- just run 'em directly.
-      _this3._runMultiReaction(r);
-    } else {
-      // Prevent this reaction from matching against objects it's already matched.
-      // FIXME: This should really check for a match _at the same path_.
-      var accept = function accept(m) {
-        var record = _this3._store.get(m.index);
-        if (!record.reactions.has(r)) {
-          record.reactions.set(r, true);
-          return true;
-        }
-        return false;
-      };
-
-      // TODO: I think this could be vastly simplified. Only an Observer can
-      // fire twice on the same object, so when the observer is first added,
-      // test it on all the objects in the vat, and after that, only test it
-      // on new objects that are added.
-      var matches = gu.filter(getDeepMatches(_this3._store, r.pattern), accept);
-      matches.forEach(function (m) {
-        var i = m.index;
-        if (!candidates.hasOwnProperty(i)) candidates[i] = [];
-        candidates[i].push([r, m]);
-      });
-    }
-  });
-  return candidates;
-};
-
-Vat.prototype._runReaction = function (r, match) {
-  var _this4 = this;
-
-  if (r instanceof Reaction) this._doWithoutHistory(function () {
-    return _this4._removeAt(match.index);
-  });
-
-  var arity = r.callback.length;
-  var expectedArity = match.bindings.length + 1;
-  assert(arity === expectedArity, 'Bad function arity: expected ' + expectedArity + ', got ' + arity);
-
-  var root = match.root;
-  var value, newValue;
-
-  function applyCallback() {
-    return r.callback.apply(null, [value].concat(match.bindings));
-  }
-
-  if (match.path.length === 0) {
-    value = root;
-    newValue = applyCallback();
-  } else {
-    value = root.getIn(match.path);
-    newValue = root.updateIn(match.path, applyCallback);
-  }
-
-  if (r instanceof Reaction) {
-    // Put the object back in the vat, replacing the matched part with the
-    // result of the reaction function.
-    if (newValue === void 0) throw new TypeError('Reactions must return a value');
-    if (newValue !== null) this.put(newValue);
-  }
-};
-
-Vat.prototype._runMultiReaction = function (r) {
-  var newStore = this._store;
-  var values = [];
-  var allBindings = [];
-  var succeeded = r.patterns.every(function (p) {
-    // Basically, do a try_take.
-    var match = gu.first(getMatches(newStore, p));
-    if (!match) {
+  }, {
+    key: '_try',
+    value: function _try(pattern, op, cb) {
+      var result = this['try_' + op].call(this, pattern);
+      if (result) {
+        cb(result);
+        return true;
+      }
       return false;
     }
-
-    var _match = _slicedToArray(match, 2);
-
-    var index = _match[0];
-    var bindings = _match[1];
-
-    values.push(newStore.get(index).value);
-    allBindings = allBindings.concat(bindings);
-    newStore = newStore.splice(index, 1);
-    return true;
-  });
-  if (succeeded) {
-    // Update the store without recording history.
-    this._store = newStore;
-
-    var arity = r.callback.length;
-    var expectedArity = allBindings.length + 1;
-    assert(arity === expectedArity, 'Bad function arity: expected ' + expectedArity + ', got ' + arity);
-
-    var newValue = r.callback.apply(null, [values].concat(allBindings));
-    if (newValue === void 0) throw new TypeError('Reactions must return a value');
-    if (newValue !== null) this.put(newValue);
-  }
-};
-
-Vat.prototype._executeReactions = function (candidates) {
-  var _this5 = this;
-
-  // To detect conflicts, keep track of all paths that are touched.
-  var reactionPaths = Object.create(null);
-
-  Object.keys(candidates).reverse().forEach(function (i) {
-    // Sort candidates based on path length (longest to shortest).
-    var sorted = candidates[i].slice().sort(function (a, b) {
-      return a[1].path.length - b[1].path.length;
-    });
-
-    // Execute each reaction, detecting conflicts as we go.
-    sorted.forEach(function (_ref2) {
-      var _ref22 = _slicedToArray(_ref2, 2);
-
-      var reaction = _ref22[0];
-      var match = _ref22[1];
-
-      var path = match.path;
-
-      // Check all ancestor paths to see if one was already touched.
-      var pathString;
-      for (var j = 0; j <= path.length; ++j) {
-        pathString = [i].concat(path.slice(0, j)).join('/') + '/';
-        if (areReactionsConflicting(reactionPaths[pathString], reaction)) throw new Error('Reaction conflict');
+  }, {
+    key: '_tryOrWait',
+    value: function _tryOrWait(pattern, op, cb) {
+      if (!this._try(pattern, op, cb)) {
+        this._waiting.push({
+          pattern: pattern,
+          op: op,
+          callback: cb
+        });
       }
-      reactionPaths[pathString] = reaction;
-
-      _this5._runReaction(reaction, match);
-    });
-  });
-};
-
-Vat.prototype.put = function (value) {
-  var _this6 = this;
-
-  // Update the store.
-  var storedObj = {
-    value: Immutable.fromJS(value),
-    reactions: new WeakMap()
-  };
-  this._updateStore(function () {
-    return _this6._store.push(storedObj);
-  });
-  this._checkForMatches();
-};
-
-Vat.prototype._checkForMatches = function () {
-  // A really naive version of deferred take/copy. This should
-  // probably be written in a more efficient way.
-  var self = this;
-  this._waiting = this._waiting.filter(function (info) {
-    return !self._try(info.pattern, info.op, info.callback);
-  });
-
-  var candidates = this._collectReactionCandidates(this._reactions, this._observers);
-  this._executeReactions(candidates);
-};
-
-Vat.prototype.try_copy = function (pattern) {
-  var i = find(this._store, pattern);
-  return i >= 0 ? this._store.get(i).value : null;
-};
-
-Vat.prototype.copy = function (pattern, cb) {
-  this._tryOrWait(pattern, 'copy', cb);
-};
-
-Vat.prototype.try_copy_all = function (pattern) {
-  var _this7 = this;
-
-  var matches = gu.toArray(getMatches(this._store, pattern));
-  return matches.map(function (arr) {
-    return _this7._store.get(arr[0]).value;
-  });
-};
-
-Vat.prototype.try_take = function (pattern, deep) {
-  if (deep) {
-    var result = gu.first(getDeepMatches(this._store, pattern));
-    if (result) {
-      this._removeAt(result.index);
-      return [result.root, result.path];
     }
-    return null;
-  }
-  var i = find(this._store, pattern);
-  return i >= 0 ? this._removeAt(i) : null;
-};
 
-Vat.prototype.take = function (pattern, cb) {
-  this._tryOrWait(pattern, 'take', cb);
-};
+    // Removes the element at `index` from the store, and returns its value.
+  }, {
+    key: '_removeAt',
+    value: function _removeAt(index) {
+      var _this = this;
 
-Vat.prototype.try_take_all = function (pattern, deep) {
-  var matches;
-  if (deep) {
-    matches = gu.toArray(getDeepMatches(this._store, pattern));
-    this._removeAll(matches.map(function (m) {
-      return m.index;
-    }));
-    return matches.map(function (m) {
-      return [m.root, m.path];
-    });
-  } else {
-    matches = gu.toArray(getMatches(this._store, pattern));
-    return this._removeAll(matches.map(function (arr) {
-      return arr[0];
-    }));
-  }
-};
+      var result = this._store.get(index).value;
+      this._updateStore(function () {
+        return _this._store.splice(index, 1);
+      });
+      return result;
+    }
 
-// A reaction is a process that attempts to `take` a given pattern every
-// time the tuple space changes. If the `reaction` function produces a result,
-// the result is put into the tuple space.
-Vat.prototype.addReaction = function () /* patterns..., reaction */{
-  var args = arguments;
-  var reaction = args[args.length - 1];
-  var r;
-  if (arguments.length === 2) {
-    r = new Reaction({ pattern: args[0], callback: reaction });
-  } else {
-    r = new MultiReaction({
-      patterns: Array.prototype.slice.call(args, 0, args.length - 1),
-      callback: reaction
-    });
-  }
-  this._reactions.push(r);
-  this._checkForMatches();
-  return r;
-};
+    // Like `_removeAt`, but removes elements from every index given in `arr`,
+    // and returns an Array of values. The indices in `arr` can be in any order
+    // and may contain duplicates.
+  }, {
+    key: '_removeAll',
+    value: function _removeAll(arr) {
+      var _this2 = this;
 
-Vat.prototype.addObserver = function () /* patterns..., cb */{
-  if (arguments.length !== 2) {
-    throw new Error('MultiObservers not yet supported');
-  }
-  var cb = arguments[arguments.length - 1];
-  var o = new Observer({ pattern: arguments[0], callback: cb });
-  this._observers.push(o);
-  this._checkForMatches();
-  return o;
-};
+      var result = arr.map(function (i) {
+        return _this2._store.get(i).value;
+      });
+      this._updateStore(function () {
+        var store = _this2._store;
+        var indices = arr.slice().sort(function (a, b) {
+          return b - a;
+        });
+        var prevIndex;
+        var _iteratorNormalCompletion3 = true;
+        var _didIteratorError3 = false;
+        var _iteratorError3 = undefined;
 
-Vat.prototype.update = function (pattern, cb) {
-  var self = this;
-  this.take(pattern, function (match) {
-    self.put(cb(match));
-  });
-};
+        try {
+          for (var _iterator3 = indices[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+            var i = _step3.value;
 
-// Does what you'd expect.
-Vat.prototype.size = function () {
-  return this._store.size;
-};
+            if (i !== prevIndex) {
+              store = store.splice(i, 1);
+            }
+            prevIndex = i;
+          }
+        } catch (err) {
+          _didIteratorError3 = true;
+          _iteratorError3 = err;
+        } finally {
+          try {
+            if (!_iteratorNormalCompletion3 && _iterator3['return']) {
+              _iterator3['return']();
+            }
+          } finally {
+            if (_didIteratorError3) {
+              throw _iteratorError3;
+            }
+          }
+        }
 
-// Exports
-// -------
+        return store;
+      });
+      return result;
+    }
+  }, {
+    key: '_collectReactionCandidates',
+    value: function _collectReactionCandidates() {
+      var _ref,
+          _this3 = this;
+
+      var candidates = [];
+      (_ref = []).concat.apply(_ref, arguments).forEach(function (r) {
+        if (r instanceof MultiReaction) {
+          // HACK: Don't add MultiReactions to candidates -- just run 'em directly.
+          _this3._runMultiReaction(r);
+        } else {
+          // Prevent this reaction from matching against objects it's already matched.
+          // FIXME: This should really check for a match _at the same path_.
+          var accept = function accept(m) {
+            var record = _this3._store.get(m.index);
+            if (!record.reactions.has(r)) {
+              record.reactions.set(r, true);
+              return true;
+            }
+            return false;
+          };
+
+          // TODO: I think this could be vastly simplified. Only an Observer can
+          // fire twice on the same object, so when the observer is first added,
+          // test it on all the objects in the vat, and after that, only test it
+          // on new objects that are added.
+          var matches = gu.filter(getDeepMatches(_this3._store, r.pattern), accept);
+          matches.forEach(function (m) {
+            var i = m.index;
+            if (!candidates.hasOwnProperty(i)) candidates[i] = [];
+            candidates[i].push([r, m]);
+          });
+        }
+      });
+      return candidates;
+    }
+  }, {
+    key: '_runReaction',
+    value: function _runReaction(r, match) {
+      var _this4 = this;
+
+      if (r instanceof Reaction) this._doWithoutHistory(function () {
+        return _this4._removeAt(match.index);
+      });
+
+      var arity = r.callback.length;
+      var expectedArity = match.bindings.length + 1;
+      assert(arity === expectedArity, 'Bad function arity: expected ' + expectedArity + ', got ' + arity);
+
+      var root = match.root;
+      var value, newValue;
+
+      function applyCallback() {
+        return r.callback.apply(null, [value].concat(match.bindings));
+      }
+
+      if (match.path.length === 0) {
+        value = root;
+        newValue = applyCallback();
+      } else {
+        value = root.getIn(match.path);
+        newValue = root.updateIn(match.path, applyCallback);
+      }
+
+      if (r instanceof Reaction) {
+        // Put the object back in the vat, replacing the matched part with the
+        // result of the reaction function.
+        if (newValue === void 0) throw new TypeError('Reactions must return a value');
+        if (newValue !== null) this.put(newValue);
+      }
+    }
+  }, {
+    key: '_runMultiReaction',
+    value: function _runMultiReaction(r) {
+      var newStore = this._store;
+      var values = [];
+      var allBindings = [];
+      var succeeded = r.patterns.every(function (p) {
+        // Basically, do a try_take.
+        var match = gu.first(getMatches(newStore, p));
+        if (!match) {
+          return false;
+        }
+
+        var _match = _slicedToArray(match, 2);
+
+        var index = _match[0];
+        var bindings = _match[1];
+
+        values.push(newStore.get(index).value);
+        allBindings = allBindings.concat(bindings);
+        newStore = newStore.splice(index, 1);
+        return true;
+      });
+      if (succeeded) {
+        // Update the store without recording history.
+        this._store = newStore;
+
+        var arity = r.callback.length;
+        var expectedArity = allBindings.length + 1;
+        assert(arity === expectedArity, 'Bad function arity: expected ' + expectedArity + ', got ' + arity);
+
+        var newValue = r.callback.apply(null, [values].concat(allBindings));
+        if (newValue === void 0) throw new TypeError('Reactions must return a value');
+        if (newValue !== null) this.put(newValue);
+      }
+    }
+  }, {
+    key: '_executeReactions',
+    value: function _executeReactions(candidates) {
+      var _this5 = this;
+
+      // To detect conflicts, keep track of all paths that are touched.
+      var reactionPaths = Object.create(null);
+
+      Object.keys(candidates).reverse().forEach(function (i) {
+        // Sort candidates based on path length (longest to shortest).
+        var sorted = candidates[i].slice().sort(function (a, b) {
+          return a[1].path.length - b[1].path.length;
+        });
+
+        // Execute each reaction, detecting conflicts as we go.
+        sorted.forEach(function (_ref2) {
+          var _ref22 = _slicedToArray(_ref2, 2);
+
+          var reaction = _ref22[0];
+          var match = _ref22[1];
+
+          var path = match.path;
+
+          // Check all ancestor paths to see if one was already touched.
+          var pathString;
+          for (var j = 0; j <= path.length; ++j) {
+            pathString = [i].concat(path.slice(0, j)).join('/') + '/';
+            if (areReactionsConflicting(reactionPaths[pathString], reaction)) throw new Error('Reaction conflict');
+          }
+          reactionPaths[pathString] = reaction;
+
+          _this5._runReaction(reaction, match);
+        });
+      });
+    }
+  }, {
+    key: 'put',
+    value: function put(value) {
+      var _this6 = this;
+
+      // Update the store.
+      var storedObj = {
+        value: Immutable.fromJS(value),
+        reactions: new WeakMap()
+      };
+      this._updateStore(function () {
+        return _this6._store.push(storedObj);
+      });
+      this._checkForMatches();
+    }
+  }, {
+    key: '_checkForMatches',
+    value: function _checkForMatches() {
+      // A really naive version of deferred take/copy. This should
+      // probably be written in a more efficient way.
+      var self = this;
+      this._waiting = this._waiting.filter(function (info) {
+        return !self._try(info.pattern, info.op, info.callback);
+      });
+
+      var candidates = this._collectReactionCandidates(this._reactions, this._observers);
+      this._executeReactions(candidates);
+    }
+  }, {
+    key: 'try_copy',
+    value: function try_copy(pattern) {
+      var i = find(this._store, pattern);
+      return i >= 0 ? this._store.get(i).value : null;
+    }
+  }, {
+    key: 'copy',
+    value: function copy(pattern, cb) {
+      this._tryOrWait(pattern, 'copy', cb);
+    }
+  }, {
+    key: 'try_copy_all',
+    value: function try_copy_all(pattern) {
+      var _this7 = this;
+
+      var matches = gu.toArray(getMatches(this._store, pattern));
+      return matches.map(function (arr) {
+        return _this7._store.get(arr[0]).value;
+      });
+    }
+  }, {
+    key: 'try_take',
+    value: function try_take(pattern, deep) {
+      if (deep) {
+        var result = gu.first(getDeepMatches(this._store, pattern));
+        if (result) {
+          this._removeAt(result.index);
+          return [result.root, result.path];
+        }
+        return null;
+      }
+      var i = find(this._store, pattern);
+      return i >= 0 ? this._removeAt(i) : null;
+    }
+  }, {
+    key: 'take',
+    value: function take(pattern, cb) {
+      this._tryOrWait(pattern, 'take', cb);
+    }
+  }, {
+    key: 'try_take_all',
+    value: function try_take_all(pattern, deep) {
+      var matches;
+      if (deep) {
+        matches = gu.toArray(getDeepMatches(this._store, pattern));
+        this._removeAll(matches.map(function (m) {
+          return m.index;
+        }));
+        return matches.map(function (m) {
+          return [m.root, m.path];
+        });
+      } else {
+        matches = gu.toArray(getMatches(this._store, pattern));
+        return this._removeAll(matches.map(function (arr) {
+          return arr[0];
+        }));
+      }
+    }
+
+    // A reaction is a process that attempts to `take` a given pattern every
+    // time the tuple space changes. If the `reaction` function produces a result,
+    // the result is put into the tuple space.
+  }, {
+    key: 'addReaction',
+    value: function addReaction() /* patterns..., reaction */{
+      var args = arguments;
+      var reaction = args[args.length - 1];
+      var r;
+      if (arguments.length === 2) {
+        r = new Reaction({ pattern: args[0], callback: reaction });
+      } else {
+        r = new MultiReaction({
+          patterns: Array.prototype.slice.call(args, 0, args.length - 1),
+          callback: reaction
+        });
+      }
+      this._reactions.push(r);
+      this._checkForMatches();
+      return r;
+    }
+  }, {
+    key: 'addObserver',
+    value: function addObserver() /* patterns..., cb */{
+      if (arguments.length !== 2) {
+        throw new Error('MultiObservers not yet supported');
+      }
+      var cb = arguments[arguments.length - 1];
+      var o = new Observer({ pattern: arguments[0], callback: cb });
+      this._observers.push(o);
+      this._checkForMatches();
+      return o;
+    }
+  }, {
+    key: 'update',
+    value: function update(pattern, cb) {
+      var self = this;
+      this.take(pattern, function (match) {
+        self.put(cb(match));
+      });
+    }
+
+    // Does what you'd expect.
+  }, {
+    key: 'size',
+    value: function size() {
+      return this._store.size;
+    }
+  }]);
+
+  return Vat;
+})(EventEmitter);
 
 module.exports = Vat;
 
-},{"../third_party/pattern-match":180,"../third_party/weakmap.js":181,"./generator-util":1,"assert":170,"events":171,"immutable":176,"tree-walk":177,"util":175}],3:[function(require,module,exports){
+},{"../third_party/pattern-match":180,"../third_party/weakmap.js":181,"./generator-util":1,"assert":170,"events":171,"immutable":176,"tree-walk":177}],3:[function(require,module,exports){
 (function (global){
 "use strict";
 
