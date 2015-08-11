@@ -346,3 +346,25 @@ test('error on conflict', function(t) {
 
   t.end();
 });
+
+test('multi-reactions', function(t) {
+  var vat = new Vat();
+  var sums = [];
+  vat.addReaction(isNumber, isNumber, function(values, a, b) {
+    sums.push(a + b);
+    return null;
+  });
+  vat.put(1);
+  t.equal(sums.length, 0, "doesn't fire with only one match");
+  vat.put(2);
+  t.equal(sums.length, 1, 'fires when both patterns can be matched');
+  t.equal(sums[0], 3);
+
+  vat.put(3);
+  t.equal(sums.length, 1, "doesn't fire again yet");
+  vat.put(4);
+  t.equal(sums.length, 2, 'fires again');
+  t.equal(sums[1], 7);
+
+  t.end();
+});

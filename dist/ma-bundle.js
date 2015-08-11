@@ -119,6 +119,7 @@ var match = pm.match,
 
 var Reaction = Immutable.Record({ pattern: null, callback: null }, 'Reaction');
 var Observer = Immutable.Record({ pattern: null, callback: null }, 'Observer');
+var MultiReaction = Immutable.Record({ patterns: null, callback: null }, 'MultiReaction');
 
 // Custom walker for walking immutable-js objects.
 var immutableWalker = walk(function (node) {
@@ -532,36 +533,46 @@ Vat.prototype._removeAll = function (arr) {
 };
 
 Vat.prototype._collectReactionCandidates = function () {
-  var _ref;
+  var _ref,
+      _this3 = this;
 
   var candidates = [];
-  var store = this._store;
   (_ref = []).concat.apply(_ref, arguments).forEach(function (r) {
-    // Prevent this reaction from matching against objects it's already matched.
-    // FIXME: This should really check for a match _at the same path_.
-    function accept(m) {
-      var record = store.get(m.index);
-      if (!record.reactions.has(r)) {
-        record.reactions.set(r, true);
-        return true;
-      }
-    }
+    if (r instanceof MultiReaction) {
+      // HACK: Don't add MultiReactions to candidates -- just run 'em directly.
+      _this3._runMultiReaction(r);
+    } else {
+      // Prevent this reaction from matching against objects it's already matched.
+      // FIXME: This should really check for a match _at the same path_.
+      var accept = function accept(m) {
+        var record = _this3._store.get(m.index);
+        if (!record.reactions.has(r)) {
+          record.reactions.set(r, true);
+          return true;
+        }
+        return false;
+      };
 
-    var matches = gu.filter(getDeepMatches(store, r.pattern), accept);
-    matches.forEach(function (m) {
-      var i = m.index;
-      if (!candidates.hasOwnProperty(i)) candidates[i] = [];
-      candidates[i].push([r, m]);
-    });
+      // TODO: I think this could be vastly simplified. Only an Observer can
+      // fire twice on the same object, so when the observer is first added,
+      // test it on all the objects in the vat, and after that, only test it
+      // on new objects that are added.
+      var matches = gu.filter(getDeepMatches(_this3._store, r.pattern), accept);
+      matches.forEach(function (m) {
+        var i = m.index;
+        if (!candidates.hasOwnProperty(i)) candidates[i] = [];
+        candidates[i].push([r, m]);
+      });
+    }
   });
   return candidates;
 };
 
 Vat.prototype._runReaction = function (r, match) {
-  var _this3 = this;
+  var _this4 = this;
 
   if (r instanceof Reaction) this._doWithoutHistory(function () {
-    return _this3._removeAt(match.index);
+    return _this4._removeAt(match.index);
   });
 
   var arity = r.callback.length;
@@ -591,8 +602,43 @@ Vat.prototype._runReaction = function (r, match) {
   }
 };
 
+Vat.prototype._runMultiReaction = function (r) {
+  var newStore = this._store;
+  var values = [];
+  var allBindings = [];
+  var succeeded = r.patterns.every(function (p) {
+    // Basically, do a try_take.
+    var match = gu.first(getMatches(newStore, p));
+    if (!match) {
+      return false;
+    }
+
+    var _match = _slicedToArray(match, 2);
+
+    var index = _match[0];
+    var bindings = _match[1];
+
+    values.push(newStore.get(index).value);
+    allBindings = allBindings.concat(bindings);
+    newStore = newStore.splice(index, 1);
+    return true;
+  });
+  if (succeeded) {
+    // Update the store without recording history.
+    this._store = newStore;
+
+    var arity = r.callback.length;
+    var expectedArity = allBindings.length + 1;
+    assert(arity === expectedArity, 'Bad function arity: expected ' + expectedArity + ', got ' + arity);
+
+    var newValue = r.callback.apply(null, [values].concat(allBindings));
+    if (newValue === void 0) throw new TypeError('Reactions must return a value');
+    if (newValue !== null) this.put(newValue);
+  }
+};
+
 Vat.prototype._executeReactions = function (candidates) {
-  var _this4 = this;
+  var _this5 = this;
 
   // To detect conflicts, keep track of all paths that are touched.
   var reactionPaths = Object.create(null);
@@ -620,13 +666,13 @@ Vat.prototype._executeReactions = function (candidates) {
       }
       reactionPaths[pathString] = reaction;
 
-      _this4._runReaction(reaction, match);
+      _this5._runReaction(reaction, match);
     });
   });
 };
 
 Vat.prototype.put = function (value) {
-  var _this5 = this;
+  var _this6 = this;
 
   // Update the store.
   var storedObj = {
@@ -634,7 +680,7 @@ Vat.prototype.put = function (value) {
     reactions: new WeakMap()
   };
   this._updateStore(function () {
-    return _this5._store.push(storedObj);
+    return _this6._store.push(storedObj);
   });
   this._checkForMatches();
 };
@@ -661,11 +707,11 @@ Vat.prototype.copy = function (pattern, cb) {
 };
 
 Vat.prototype.try_copy_all = function (pattern) {
-  var _this6 = this;
+  var _this7 = this;
 
   var matches = gu.toArray(getMatches(this._store, pattern));
   return matches.map(function (arr) {
-    return _this6._store.get(arr[0]).value;
+    return _this7._store.get(arr[0]).value;
   });
 };
 
@@ -707,15 +753,29 @@ Vat.prototype.try_take_all = function (pattern, deep) {
 // A reaction is a process that attempts to `take` a given pattern every
 // time the tuple space changes. If the `reaction` function produces a result,
 // the result is put into the tuple space.
-Vat.prototype.addReaction = function (pattern, reaction) {
-  var r = new Reaction({ pattern: pattern, callback: reaction });
+Vat.prototype.addReaction = function () /* patterns..., reaction */{
+  var args = arguments;
+  var reaction = args[args.length - 1];
+  var r;
+  if (arguments.length === 2) {
+    r = new Reaction({ pattern: args[0], callback: reaction });
+  } else {
+    r = new MultiReaction({
+      patterns: Array.prototype.slice.call(args, 0, args.length - 1),
+      callback: reaction
+    });
+  }
   this._reactions.push(r);
   this._checkForMatches();
   return r;
 };
 
-Vat.prototype.addObserver = function (pattern, cb) {
-  var o = new Observer({ pattern: pattern, callback: cb });
+Vat.prototype.addObserver = function () /* patterns..., cb */{
+  if (arguments.length !== 2) {
+    throw new Error('MultiObservers not yet supported');
+  }
+  var cb = arguments[arguments.length - 1];
+  var o = new Observer({ pattern: arguments[0], callback: cb });
   this._observers.push(o);
   this._checkForMatches();
   return o;
