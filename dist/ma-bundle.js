@@ -113,15 +113,15 @@ var _createClass = (function () {
   };
 })();
 
-var _get = function get(_x3, _x4, _x5) {
+var _get = function get(_x4, _x5, _x6) {
   var _again = true;_function: while (_again) {
-    var object = _x3,
-        property = _x4,
-        receiver = _x5;desc = parent = getter = undefined;_again = false;if (object === null) object = Function.prototype;var desc = Object.getOwnPropertyDescriptor(object, property);if (desc === undefined) {
+    var object = _x4,
+        property = _x5,
+        receiver = _x6;desc = parent = getter = undefined;_again = false;if (object === null) object = Function.prototype;var desc = Object.getOwnPropertyDescriptor(object, property);if (desc === undefined) {
       var parent = Object.getPrototypeOf(object);if (parent === null) {
         return undefined;
       } else {
-        _x3 = parent;_x4 = property;_x5 = receiver;_again = true;continue _function;
+        _x4 = parent;_x5 = property;_x6 = receiver;_again = true;continue _function;
       }
     } else if ('value' in desc) {
       return desc.value;
@@ -328,10 +328,12 @@ var Vat = (function (_EventEmitter) {
   _inherits(Vat, _EventEmitter);
 
   function Vat() {
+    var comparator = arguments.length <= 0 || arguments[0] === undefined ? null : arguments[0];
+
     _classCallCheck(this, Vat);
 
     _get(Object.getPrototypeOf(Vat.prototype), 'constructor', this).call(this);
-    this._init();
+    this._init(comparator);
 
     // Store this Vat's history in a Vat, but stop the recursion there -- don't
     // keep a history of the history.
@@ -345,11 +347,13 @@ var Vat = (function (_EventEmitter) {
 
   _createClass(Vat, [{
     key: '_init',
-    value: function _init() {
+    value: function _init(comparator) {
       this._store = Immutable.List();
       this._waiting = [];
       this._reactions = [];
       this._observers = [];
+
+      this._comparator = comparator;
     }
 
     // Helper which returns the index of the first match of `pattern` in `arr`.
@@ -367,39 +371,82 @@ var Vat = (function (_EventEmitter) {
     key: '_getMatches',
     value: regeneratorRuntime.mark(function _getMatches(pattern) {
       var store = arguments.length <= 1 || arguments[1] === undefined ? this._store : arguments[1];
-      var p, i, bindings;
+
+      var p, _iteratorNormalCompletion2, _didIteratorError2, _iteratorError2, _iterator2, _step2, _step2$value, i, obj, bindings;
+
       return regeneratorRuntime.wrap(function _getMatches$(context$2$0) {
         while (1) switch (context$2$0.prev = context$2$0.next) {
           case 0:
             p = convertPattern(pattern);
-            i = 0;
+            _iteratorNormalCompletion2 = true;
+            _didIteratorError2 = false;
+            _iteratorError2 = undefined;
+            context$2$0.prev = 4;
+            _iterator2 = store.entries()[Symbol.iterator]();
 
-          case 2:
-            if (!(i < store.size)) {
-              context$2$0.next = 10;
+          case 6:
+            if (_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done) {
+              context$2$0.next = 17;
               break;
             }
 
-            bindings = match(store.get(i).value, p);
+            _step2$value = _slicedToArray(_step2.value, 2);
+            i = _step2$value[0];
+            obj = _step2$value[1];
+            bindings = match(obj.value, p);
 
             if (!bindings) {
-              context$2$0.next = 7;
+              context$2$0.next = 14;
               break;
             }
 
-            context$2$0.next = 7;
+            context$2$0.next = 14;
             return [i, bindings];
 
-          case 7:
-            ++i;
-            context$2$0.next = 2;
+          case 14:
+            _iteratorNormalCompletion2 = true;
+            context$2$0.next = 6;
             break;
 
-          case 10:
+          case 17:
+            context$2$0.next = 23;
+            break;
+
+          case 19:
+            context$2$0.prev = 19;
+            context$2$0.t0 = context$2$0['catch'](4);
+            _didIteratorError2 = true;
+            _iteratorError2 = context$2$0.t0;
+
+          case 23:
+            context$2$0.prev = 23;
+            context$2$0.prev = 24;
+
+            if (!_iteratorNormalCompletion2 && _iterator2['return']) {
+              _iterator2['return']();
+            }
+
+          case 26:
+            context$2$0.prev = 26;
+
+            if (!_didIteratorError2) {
+              context$2$0.next = 29;
+              break;
+            }
+
+            throw _iteratorError2;
+
+          case 29:
+            return context$2$0.finish(26);
+
+          case 30:
+            return context$2$0.finish(23);
+
+          case 31:
           case 'end':
             return context$2$0.stop();
         }
-      }, _getMatches, this);
+      }, _getMatches, this, [[4, 19, 23, 31], [24,, 26, 30]]);
     })
 
     // Yields an { index, root, path, bindings } for each deep match of `pattern`
@@ -407,95 +454,137 @@ var Vat = (function (_EventEmitter) {
   }, {
     key: '_getDeepMatches',
     value: regeneratorRuntime.mark(function _getDeepMatches(pattern) {
-      var p, path, i, root, _iteratorNormalCompletion2, _didIteratorError2, _iteratorError2, _iterator2, _step2, _step2$value, matchPath, bindings, rootPath;
+      var p, path, _iteratorNormalCompletion3, _didIteratorError3, _iteratorError3, _iterator3, _step3, _step3$value, i, obj, root, _iteratorNormalCompletion4, _didIteratorError4, _iteratorError4, _iterator4, _step4, _step4$value, matchPath, bindings, rootPath;
 
       return regeneratorRuntime.wrap(function _getDeepMatches$(context$2$0) {
         while (1) switch (context$2$0.prev = context$2$0.next) {
           case 0:
             p = convertPattern(pattern);
-            i = 0;
+            _iteratorNormalCompletion3 = true;
+            _didIteratorError3 = false;
+            _iteratorError3 = undefined;
+            context$2$0.prev = 4;
+            _iterator3 = this._store.entries()[Symbol.iterator]();
 
-          case 2:
-            if (!(i < this._store.size)) {
-              context$2$0.next = 37;
+          case 6:
+            if (_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done) {
+              context$2$0.next = 44;
               break;
             }
+
+            _step3$value = _slicedToArray(_step3.value, 2);
+            i = _step3$value[0];
+            obj = _step3$value[1];
 
             path = [i];
-            root = this._store.get(i).value;
-            _iteratorNormalCompletion2 = true;
-            _didIteratorError2 = false;
-            _iteratorError2 = undefined;
-            context$2$0.prev = 8;
-            _iterator2 = matchDeep(root, p, path)[Symbol.iterator]();
+            root = obj.value;
+            _iteratorNormalCompletion4 = true;
+            _didIteratorError4 = false;
+            _iteratorError4 = undefined;
+            context$2$0.prev = 15;
+            _iterator4 = matchDeep(root, p, path)[Symbol.iterator]();
 
-          case 10:
-            if (_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done) {
-              context$2$0.next = 20;
+          case 17:
+            if (_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done) {
+              context$2$0.next = 27;
               break;
             }
 
-            _step2$value = _slicedToArray(_step2.value, 2);
-            matchPath = _step2$value[0];
-            bindings = _step2$value[1];
+            _step4$value = _slicedToArray(_step4.value, 2);
+            matchPath = _step4$value[0];
+            bindings = _step4$value[1];
             rootPath = matchPath.slice(1);
-            context$2$0.next = 17;
+            context$2$0.next = 24;
             return { index: matchPath[0], root: root, path: rootPath, bindings: bindings };
 
-          case 17:
-            _iteratorNormalCompletion2 = true;
-            context$2$0.next = 10;
+          case 24:
+            _iteratorNormalCompletion4 = true;
+            context$2$0.next = 17;
             break;
 
-          case 20:
-            context$2$0.next = 26;
+          case 27:
+            context$2$0.next = 33;
             break;
-
-          case 22:
-            context$2$0.prev = 22;
-            context$2$0.t0 = context$2$0['catch'](8);
-            _didIteratorError2 = true;
-            _iteratorError2 = context$2$0.t0;
-
-          case 26:
-            context$2$0.prev = 26;
-            context$2$0.prev = 27;
-
-            if (!_iteratorNormalCompletion2 && _iterator2['return']) {
-              _iterator2['return']();
-            }
 
           case 29:
             context$2$0.prev = 29;
+            context$2$0.t0 = context$2$0['catch'](15);
+            _didIteratorError4 = true;
+            _iteratorError4 = context$2$0.t0;
 
-            if (!_didIteratorError2) {
-              context$2$0.next = 32;
+          case 33:
+            context$2$0.prev = 33;
+            context$2$0.prev = 34;
+
+            if (!_iteratorNormalCompletion4 && _iterator4['return']) {
+              _iterator4['return']();
+            }
+
+          case 36:
+            context$2$0.prev = 36;
+
+            if (!_didIteratorError4) {
+              context$2$0.next = 39;
               break;
             }
 
-            throw _iteratorError2;
+            throw _iteratorError4;
 
-          case 32:
-            return context$2$0.finish(29);
+          case 39:
+            return context$2$0.finish(36);
 
-          case 33:
-            return context$2$0.finish(26);
+          case 40:
+            return context$2$0.finish(33);
 
-          case 34:
-            ++i;
-            context$2$0.next = 2;
+          case 41:
+            _iteratorNormalCompletion3 = true;
+            context$2$0.next = 6;
             break;
 
-          case 37:
+          case 44:
+            context$2$0.next = 50;
+            break;
+
+          case 46:
+            context$2$0.prev = 46;
+            context$2$0.t1 = context$2$0['catch'](4);
+            _didIteratorError3 = true;
+            _iteratorError3 = context$2$0.t1;
+
+          case 50:
+            context$2$0.prev = 50;
+            context$2$0.prev = 51;
+
+            if (!_iteratorNormalCompletion3 && _iterator3['return']) {
+              _iterator3['return']();
+            }
+
+          case 53:
+            context$2$0.prev = 53;
+
+            if (!_didIteratorError3) {
+              context$2$0.next = 56;
+              break;
+            }
+
+            throw _iteratorError3;
+
+          case 56:
+            return context$2$0.finish(53);
+
+          case 57:
+            return context$2$0.finish(50);
+
+          case 58:
           case 'end':
             return context$2$0.stop();
         }
-      }, _getDeepMatches, this, [[8, 22, 26, 34], [27,, 29, 33]]);
+      }, _getDeepMatches, this, [[4, 46, 50, 58], [15, 29, 33, 41], [34,, 36, 40], [51,, 53, 57]]);
     })
   }, {
     key: '_updateStore',
     value: function _updateStore(updateFn) {
-      this._store = updateFn.call(this);
+      this._store = updateFn.call(this).sort(this._comparator);
       if (this._history) {
         this._history.put(this._store);
 
@@ -566,13 +655,13 @@ var Vat = (function (_EventEmitter) {
           return b - a;
         });
         var prevIndex;
-        var _iteratorNormalCompletion3 = true;
-        var _didIteratorError3 = false;
-        var _iteratorError3 = undefined;
+        var _iteratorNormalCompletion5 = true;
+        var _didIteratorError5 = false;
+        var _iteratorError5 = undefined;
 
         try {
-          for (var _iterator3 = indices[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
-            var i = _step3.value;
+          for (var _iterator5 = indices[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
+            var i = _step5.value;
 
             if (i !== prevIndex) {
               store = store.splice(i, 1);
@@ -580,16 +669,16 @@ var Vat = (function (_EventEmitter) {
             prevIndex = i;
           }
         } catch (err) {
-          _didIteratorError3 = true;
-          _iteratorError3 = err;
+          _didIteratorError5 = true;
+          _iteratorError5 = err;
         } finally {
           try {
-            if (!_iteratorNormalCompletion3 && _iterator3['return']) {
-              _iterator3['return']();
+            if (!_iteratorNormalCompletion5 && _iterator5['return']) {
+              _iterator5['return']();
             }
           } finally {
-            if (_didIteratorError3) {
-              throw _iteratorError3;
+            if (_didIteratorError5) {
+              throw _iteratorError5;
             }
           }
         }

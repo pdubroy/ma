@@ -368,3 +368,18 @@ test('multi-reactions', function(t) {
 
   t.end();
 });
+
+test('comparator', function(t) {
+  var vat = new Vat();
+  vat.put(1);
+  vat.put(2);
+  t.equal(vat.try_copy(isNumber), 1, 'sorted sequentially by default');
+
+  vat = new Vat(function(a, b) { return b.value - a.value; });
+  vat.put(1);
+  vat.put(2);
+  t.equal(vat.try_copy(isNumber), 2, 'sorted by value');
+
+  t.end();
+});
+
