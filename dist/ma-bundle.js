@@ -225,7 +225,7 @@ function convertPattern(p) {
 function matchDeep(obj, pattern) {
   var path = arguments.length <= 2 || arguments[2] === undefined ? [] : arguments[2];
 
-  var bindings, isList, isMap, _iteratorNormalCompletion, _didIteratorError, _iteratorError, _iterator, _step, entry;
+  var bindings, isList, isMap, _iteratorNormalCompletion, _didIteratorError, _iteratorError, _iterator, _step, _step$value, k, v;
 
   return regeneratorRuntime.wrap(function matchDeep$(context$1$0) {
     while (1) switch (context$1$0.prev = context$1$0.next) {
@@ -239,7 +239,7 @@ function matchDeep(obj, pattern) {
         return [path, bindings];
 
       case 3:
-        context$1$0.next = 33;
+        context$1$0.next = 35;
         break;
 
       case 5:
@@ -247,7 +247,7 @@ function matchDeep(obj, pattern) {
         isMap = obj && Immutable.Map.isMap(obj);
 
         if (!(isList || isMap)) {
-          context$1$0.next = 33;
+          context$1$0.next = 35;
           break;
         }
 
@@ -259,57 +259,59 @@ function matchDeep(obj, pattern) {
 
       case 13:
         if (_iteratorNormalCompletion = (_step = _iterator.next()).done) {
-          context$1$0.next = 19;
+          context$1$0.next = 21;
           break;
         }
 
-        entry = _step.value;
-        return context$1$0.delegateYield(matchDeep(entry[1], pattern, path.concat(entry[0])), 't0', 16);
+        _step$value = _slicedToArray(_step.value, 2);
+        k = _step$value[0];
+        v = _step$value[1];
+        return context$1$0.delegateYield(matchDeep(v, pattern, path.concat(k)), 't0', 18);
 
-      case 16:
+      case 18:
         _iteratorNormalCompletion = true;
         context$1$0.next = 13;
         break;
 
-      case 19:
-        context$1$0.next = 25;
+      case 21:
+        context$1$0.next = 27;
         break;
 
-      case 21:
-        context$1$0.prev = 21;
+      case 23:
+        context$1$0.prev = 23;
         context$1$0.t1 = context$1$0['catch'](11);
         _didIteratorError = true;
         _iteratorError = context$1$0.t1;
 
-      case 25:
-        context$1$0.prev = 25;
-        context$1$0.prev = 26;
+      case 27:
+        context$1$0.prev = 27;
+        context$1$0.prev = 28;
 
         if (!_iteratorNormalCompletion && _iterator['return']) {
           _iterator['return']();
         }
 
-      case 28:
-        context$1$0.prev = 28;
+      case 30:
+        context$1$0.prev = 30;
 
         if (!_didIteratorError) {
-          context$1$0.next = 31;
+          context$1$0.next = 33;
           break;
         }
 
         throw _iteratorError;
 
-      case 31:
-        return context$1$0.finish(28);
-
-      case 32:
-        return context$1$0.finish(25);
-
       case 33:
+        return context$1$0.finish(30);
+
+      case 34:
+        return context$1$0.finish(27);
+
+      case 35:
       case 'end':
         return context$1$0.stop();
     }
-  }, marked0$0[0], this, [[11, 21, 25, 33], [26,, 28, 32]]);
+  }, marked0$0[0], this, [[11, 23, 27, 35], [28,, 30, 34]]);
 }
 
 // Return true if `r1`, and `r2` are conflicting reactions, otherwise false.
@@ -348,7 +350,8 @@ var Vat = (function (_EventEmitter) {
   _createClass(Vat, [{
     key: '_init',
     value: function _init(comparator) {
-      this._store = Immutable.List();
+      this._store = Immutable.Map();
+      this._nextKey = 0;
       this._waiting = [];
       this._reactions = [];
       this._observers = [];
@@ -356,9 +359,9 @@ var Vat = (function (_EventEmitter) {
       this._comparator = comparator;
     }
 
-    // Helper which returns the index of the first match of `pattern` in `arr`.
-    // It does not match deeply, and does not return the pattern bindings. Use
-    // `_getMatches` or `_getDeepMatches` for those use cases.
+    // Helper which returns the index of the first match of `pattern` in this
+    // vat's store. It does not match deeply, and does not return the pattern
+    // bindings. Use `_getMatches` or `_getDeepMatches` for those use cases.
   }, {
     key: 'find',
     value: function find(pattern) {
@@ -366,13 +369,13 @@ var Vat = (function (_EventEmitter) {
       return firstMatch ? firstMatch[0] : -1;
     }
 
-    // Yields [index, bindings] for each match of `pattern` found in `arr`.
+    // Yields [key, bindings] for each match of `pattern` found in `store`.
   }, {
     key: '_getMatches',
     value: regeneratorRuntime.mark(function _getMatches(pattern) {
       var store = arguments.length <= 1 || arguments[1] === undefined ? this._store : arguments[1];
 
-      var p, _iteratorNormalCompletion2, _didIteratorError2, _iteratorError2, _iterator2, _step2, _step2$value, i, obj, bindings;
+      var p, _iteratorNormalCompletion2, _didIteratorError2, _iteratorError2, _iterator2, _step2, _step2$value, key, obj, bindings;
 
       return regeneratorRuntime.wrap(function _getMatches$(context$2$0) {
         while (1) switch (context$2$0.prev = context$2$0.next) {
@@ -391,7 +394,7 @@ var Vat = (function (_EventEmitter) {
             }
 
             _step2$value = _slicedToArray(_step2.value, 2);
-            i = _step2$value[0];
+            key = _step2$value[0];
             obj = _step2$value[1];
             bindings = match(obj.value, p);
 
@@ -401,7 +404,7 @@ var Vat = (function (_EventEmitter) {
             }
 
             context$2$0.next = 14;
-            return [i, bindings];
+            return [key, bindings];
 
           case 14:
             _iteratorNormalCompletion2 = true;
@@ -449,12 +452,12 @@ var Vat = (function (_EventEmitter) {
       }, _getMatches, this, [[4, 19, 23, 31], [24,, 26, 30]]);
     })
 
-    // Yields an { index, root, path, bindings } for each deep match of `pattern`
-    // found in any of the objects in `arr`.
+    // Yields { key, path, bindings } for each deep match of `pattern`
+    // found in any of the objects in the store.
   }, {
     key: '_getDeepMatches',
     value: regeneratorRuntime.mark(function _getDeepMatches(pattern) {
-      var p, path, _iteratorNormalCompletion3, _didIteratorError3, _iteratorError3, _iterator3, _step3, _step3$value, i, obj, root, _iteratorNormalCompletion4, _didIteratorError4, _iteratorError4, _iterator4, _step4, _step4$value, matchPath, bindings, rootPath;
+      var p, path, _iteratorNormalCompletion3, _didIteratorError3, _iteratorError3, _iterator3, _step3, _step3$value, key, obj, root, _iteratorNormalCompletion4, _didIteratorError4, _iteratorError4, _iterator4, _step4, _step4$value, matchPath, bindings, rootPath;
 
       return regeneratorRuntime.wrap(function _getDeepMatches$(context$2$0) {
         while (1) switch (context$2$0.prev = context$2$0.next) {
@@ -473,10 +476,10 @@ var Vat = (function (_EventEmitter) {
             }
 
             _step3$value = _slicedToArray(_step3.value, 2);
-            i = _step3$value[0];
+            key = _step3$value[0];
             obj = _step3$value[1];
 
-            path = [i];
+            path = [key];
             root = obj.value;
             _iteratorNormalCompletion4 = true;
             _didIteratorError4 = false;
@@ -495,7 +498,7 @@ var Vat = (function (_EventEmitter) {
             bindings = _step4$value[1];
             rootPath = matchPath.slice(1);
             context$2$0.next = 24;
-            return { index: matchPath[0], root: root, path: rootPath, bindings: bindings };
+            return { index: matchPath[0], path: rootPath, bindings: bindings };
 
           case 24:
             _iteratorNormalCompletion4 = true;
@@ -633,7 +636,7 @@ var Vat = (function (_EventEmitter) {
 
       var result = this._store.get(index).value;
       this._updateStore(function () {
-        return _this._store.splice(index, 1);
+        return _this._store['delete'](index);
       });
       return result;
     }
@@ -664,7 +667,7 @@ var Vat = (function (_EventEmitter) {
             var i = _step5.value;
 
             if (i !== prevIndex) {
-              store = store.splice(i, 1);
+              store = store['delete'](i);
             }
             prevIndex = i;
           }
@@ -693,7 +696,8 @@ var Vat = (function (_EventEmitter) {
       var _ref,
           _this3 = this;
 
-      var candidates = [];
+      // A Map of index : [[reaction, match], ...]
+      var candidates = Immutable.Map();
       (_ref = []).concat.apply(_ref, arguments).forEach(function (r) {
         if (r instanceof MultiReaction) {
           // HACK: Don't add MultiReactions to candidates -- just run 'em directly.
@@ -701,6 +705,10 @@ var Vat = (function (_EventEmitter) {
         } else {
           // Prevent this reaction from matching against objects it's already matched.
           // FIXME: This should really check for a match _at the same path_.
+          // TODO: I think this could be vastly simplified. Only an Observer can
+          // fire twice on the same object, so when the observer is first added,
+          // test it on all the objects in the vat, and after that, only test it
+          // on new objects that are added.
           var accept = function accept(m) {
             var record = _this3._store.get(m.index);
             if (!record.reactions.has(r)) {
@@ -709,67 +717,54 @@ var Vat = (function (_EventEmitter) {
             }
             return false;
           };
-
-          // TODO: I think this could be vastly simplified. Only an Observer can
-          // fire twice on the same object, so when the observer is first added,
-          // test it on all the objects in the vat, and after that, only test it
-          // on new objects that are added.
-          var matches = gu.filter(_this3._getDeepMatches(r.pattern), accept);
-          matches.forEach(function (m) {
-            var i = m.index;
-            if (!candidates.hasOwnProperty(i)) candidates[i] = [];
-            candidates[i].push([r, m]);
-          });
+          var matches = Immutable.Seq(_this3._getDeepMatches(r.pattern)).filter(accept);
+          candidates = candidates.mergeWith(function (prev, next) {
+            return prev.concat(next);
+          }, matches.map(function (m) {
+            return [r, m];
+          }).groupBy(function (arr) {
+            return arr[1].index;
+          }));
         }
       });
       return candidates;
     }
   }, {
     key: '_runReaction',
-    value: function _runReaction(r, match) {
-      var _this4 = this;
-
-      if (r instanceof Reaction) this._doWithoutHistory(function () {
-        return _this4._removeAt(match.index);
-      });
-
+    value: function _runReaction(r, root, match) {
       var arity = r.callback.length;
       var expectedArity = match.bindings.length + 1;
       assert(arity === expectedArity, 'Bad function arity: expected ' + expectedArity + ', got ' + arity);
 
-      var root = match.root;
-      var value, newValue;
-
-      function applyCallback() {
-        return r.callback.apply(null, [value].concat(match.bindings));
-      }
-
+      var newRoot;
       if (match.path.length === 0) {
-        value = root;
-        newValue = applyCallback();
+        newRoot = r.callback.apply(null, [root].concat(match.bindings));
       } else {
-        value = root.getIn(match.path);
-        newValue = root.updateIn(match.path, applyCallback);
+        var value = root.getIn(match.path);
+        newRoot = root.updateIn(match.path, function () {
+          return r.callback.apply(null, [value].concat(match.bindings));
+        });
       }
 
       if (r instanceof Reaction) {
-        // Put the object back in the vat, replacing the matched part with the
-        // result of the reaction function.
-        if (newValue === void 0) throw new TypeError('Reactions must return a value');
-        if (newValue !== null) this.put(newValue);
+        if (newRoot === void 0) {
+          throw new TypeError('Reactions must return a value');
+        }
+        return newRoot;
       }
+      return root;
     }
   }, {
     key: '_runMultiReaction',
     value: function _runMultiReaction(r) {
-      var _this5 = this;
+      var _this4 = this;
 
       var newStore = this._store;
       var values = [];
       var allBindings = [];
       var succeeded = r.patterns.every(function (p) {
         // Basically, do a try_take.
-        var match = gu.first(_this5._getMatches(p, newStore));
+        var match = gu.first(_this4._getMatches(p, newStore));
         if (!match) {
           return false;
         }
@@ -781,7 +776,7 @@ var Vat = (function (_EventEmitter) {
 
         values.push(newStore.get(index).value);
         allBindings = allBindings.concat(bindings);
-        newStore = newStore.splice(index, 1);
+        newStore = newStore['delete'](index);
         return true;
       });
       if (succeeded) {
@@ -792,58 +787,107 @@ var Vat = (function (_EventEmitter) {
         var expectedArity = allBindings.length + 1;
         assert(arity === expectedArity, 'Bad function arity: expected ' + expectedArity + ', got ' + arity);
 
-        var newValue = r.callback.apply(null, [values].concat(allBindings));
-        if (newValue === void 0) throw new TypeError('Reactions must return a value');
-        if (newValue !== null) this.put(newValue);
+        var newRoot = r.callback.apply(null, [values].concat(allBindings));
+        if (newRoot === void 0) {
+          throw new TypeError('Reactions must return a value');
+        }
+        if (newRoot !== null) {
+          this.put(newRoot);
+        }
       }
     }
   }, {
     key: '_executeReactions',
     value: function _executeReactions(candidates) {
-      var _this6 = this;
+      var _this5 = this;
 
       // To detect conflicts, keep track of all paths that are touched.
       var reactionPaths = Object.create(null);
+      var _iteratorNormalCompletion6 = true;
+      var _didIteratorError6 = false;
+      var _iteratorError6 = undefined;
 
-      Object.keys(candidates).reverse().forEach(function (i) {
-        // Sort candidates based on path length (longest to shortest).
-        var sorted = candidates[i].slice().sort(function (a, b) {
-          return a[1].path.length - b[1].path.length;
-        });
+      try {
+        for (var _iterator6 = candidates.entries()[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
+          var _step6$value = _slicedToArray(_step6.value, 2);
 
-        // Execute each reaction, detecting conflicts as we go.
-        sorted.forEach(function (_ref2) {
-          var _ref22 = _slicedToArray(_ref2, 2);
+          var k = _step6$value[0];
+          var reactions = _step6$value[1];
 
-          var reaction = _ref22[0];
-          var match = _ref22[1];
+          // Sort candidates based on path length (longest to shortest).
+          var sorted = reactions.sort(function (a, b) {
+            return a[1].path.length - b[1].path.length;
+          });
 
-          var path = match.path;
+          var root = this._store.get(k).value;
 
-          // Check all ancestor paths to see if one was already touched.
-          var pathString;
-          for (var j = 0; j <= path.length; ++j) {
-            pathString = [i].concat(path.slice(0, j)).join('/') + '/';
-            if (areReactionsConflicting(reactionPaths[pathString], reaction)) throw new Error('Reaction conflict');
+          // Execute each reaction, detecting conflicts as we go.
+          sorted.forEach(function (_ref2) {
+            var _ref22 = _slicedToArray(_ref2, 2);
+
+            var reaction = _ref22[0];
+            var match = _ref22[1];
+
+            var path = match.path;
+
+            // Check all ancestor paths to see if one was already touched.
+            var pathString;
+            for (var j = 0; j <= path.length; ++j) {
+              pathString = [k].concat(path.slice(0, j)).join('/') + '/';
+              if (areReactionsConflicting(reactionPaths[pathString], reaction)) throw new Error('Reaction conflict');
+            }
+            reactionPaths[pathString] = reaction;
+
+            // Remove the element from the store when we encounter the first
+            // non-observer reaction.
+            if (reaction instanceof Reaction && _this5._store.has(match.index)) {
+              _this5._doWithoutHistory(function () {
+                return _this5._removeAt(match.index);
+              });
+            }
+
+            var result = _this5._runReaction(reaction, root, match);
+
+            // The object can be modified as reactions run against it, but this
+            // can only happen with deep reactions that are operating on
+            // different parts of the object, so there can't be conflicts.
+            if (reaction instanceof Reaction) {
+              root = result;
+            }
+          });
+          // If the original object was removed, replace it with the final result.
+          if (!this._store.has(k) && root !== null) {
+            this.put(root);
           }
-          reactionPaths[pathString] = reaction;
-
-          _this6._runReaction(reaction, match);
-        });
-      });
+        }
+      } catch (err) {
+        _didIteratorError6 = true;
+        _iteratorError6 = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion6 && _iterator6['return']) {
+            _iterator6['return']();
+          }
+        } finally {
+          if (_didIteratorError6) {
+            throw _iteratorError6;
+          }
+        }
+      }
     }
   }, {
     key: 'put',
     value: function put(value) {
-      var _this7 = this;
+      var _this6 = this;
 
       // Update the store.
       var storedObj = {
         value: Immutable.fromJS(value),
+        key: this._nextKey++,
         reactions: new WeakMap()
       };
       this._updateStore(function () {
-        return _this7._store.push(storedObj);
+        return _this6._store.set(storedObj.key, storedObj);
       });
       this._checkForMatches();
     }
@@ -874,11 +918,11 @@ var Vat = (function (_EventEmitter) {
   }, {
     key: 'try_copy_all',
     value: function try_copy_all(pattern) {
-      var _this8 = this;
+      var _this7 = this;
 
       var matches = gu.toArray(this._getMatches(pattern));
       return matches.map(function (arr) {
-        return _this8._store.get(arr[0]).value;
+        return _this7._store.get(arr[0]).value;
       });
     }
   }, {
@@ -887,8 +931,8 @@ var Vat = (function (_EventEmitter) {
       if (deep) {
         var result = gu.first(this._getDeepMatches(pattern));
         if (result) {
-          this._removeAt(result.index);
-          return [result.root, result.path];
+          var root = this._removeAt(result.index);
+          return [root, result.path];
         }
         return null;
       }
@@ -903,15 +947,18 @@ var Vat = (function (_EventEmitter) {
   }, {
     key: 'try_take_all',
     value: function try_take_all(pattern, deep) {
+      var _this8 = this;
+
       var matches;
       if (deep) {
         matches = gu.toArray(this._getDeepMatches(pattern));
+        var result = matches.map(function (m) {
+          return [_this8._store.get(m.index), m.path];
+        });
         this._removeAll(matches.map(function (m) {
           return m.index;
         }));
-        return matches.map(function (m) {
-          return [m.root, m.path];
-        });
+        return result;
       } else {
         matches = gu.toArray(this._getMatches(pattern));
         return this._removeAll(matches.map(function (arr) {
