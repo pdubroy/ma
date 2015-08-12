@@ -159,9 +159,9 @@ require('../third_party/weakmap.js');
 var match = pm.match,
     Pattern = pm.Pattern;
 
-var Reaction = Immutable.Record({ pattern: null, callback: null }, 'Reaction');
-var Observer = Immutable.Record({ pattern: null, callback: null }, 'Observer');
-var MultiReaction = Immutable.Record({ patterns: null, callback: null }, 'MultiReaction');
+var Reaction = Immutable.Record({ pattern: null, callback: null, comparator: null }, 'Reaction');
+var Observer = Immutable.Record({ pattern: null, callback: null, comparator: null }, 'Observer');
+var MultiReaction = Immutable.Record({ patterns: null, callback: null, comparator: null }, 'MultiReaction');
 
 // Custom walker for walking immutable-js objects.
 var immutableWalker = walk(function (node) {
@@ -330,12 +330,10 @@ var Vat = (function (_EventEmitter) {
   _inherits(Vat, _EventEmitter);
 
   function Vat() {
-    var comparator = arguments.length <= 0 || arguments[0] === undefined ? null : arguments[0];
-
     _classCallCheck(this, Vat);
 
     _get(Object.getPrototypeOf(Vat.prototype), 'constructor', this).call(this);
-    this._init(comparator);
+    this._init();
 
     // Store this Vat's history in a Vat, but stop the recursion there -- don't
     // keep a history of the history.
@@ -349,14 +347,13 @@ var Vat = (function (_EventEmitter) {
 
   _createClass(Vat, [{
     key: '_init',
-    value: function _init(comparator) {
+    value: function _init() {
       this._store = Immutable.Map();
       this._nextKey = 0;
       this._waiting = [];
       this._reactions = [];
       this._observers = [];
-
-      this._comparator = comparator;
+      this.comparator = null;
     }
 
     // Helper which returns the index of the first match of `pattern` in this
@@ -385,7 +382,7 @@ var Vat = (function (_EventEmitter) {
             _didIteratorError2 = false;
             _iteratorError2 = undefined;
             context$2$0.prev = 4;
-            _iterator2 = store.entries()[Symbol.iterator]();
+            _iterator2 = store.sort(this.comparator)[Symbol.iterator]();
 
           case 6:
             if (_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done) {
@@ -457,6 +454,8 @@ var Vat = (function (_EventEmitter) {
   }, {
     key: '_getDeepMatches',
     value: regeneratorRuntime.mark(function _getDeepMatches(pattern) {
+      var comparator = arguments.length <= 1 || arguments[1] === undefined ? this.comparator : arguments[1];
+
       var p, path, _iteratorNormalCompletion3, _didIteratorError3, _iteratorError3, _iterator3, _step3, _step3$value, key, obj, root, _iteratorNormalCompletion4, _didIteratorError4, _iteratorError4, _iterator4, _step4, _step4$value, matchPath, bindings, rootPath;
 
       return regeneratorRuntime.wrap(function _getDeepMatches$(context$2$0) {
@@ -467,7 +466,7 @@ var Vat = (function (_EventEmitter) {
             _didIteratorError3 = false;
             _iteratorError3 = undefined;
             context$2$0.prev = 4;
-            _iterator3 = this._store.entries()[Symbol.iterator]();
+            _iterator3 = this._store.sort(comparator)[Symbol.iterator]();
 
           case 6:
             if (_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done) {
@@ -717,12 +716,12 @@ var Vat = (function (_EventEmitter) {
             }
             return false;
           };
-          var matches = Immutable.Seq(_this3._getDeepMatches(r.pattern)).filter(accept);
+          var matches = Immutable.Seq(_this3._getDeepMatches(r.pattern, r.comparator)).filter(accept).map(function (m) {
+            return [r, m];
+          });
           candidates = candidates.mergeWith(function (prev, next) {
             return prev.concat(next);
-          }, matches.map(function (m) {
-            return [r, m];
-          }).groupBy(function (arr) {
+          }, matches.groupBy(function (arr) {
             return arr[1].index;
           }));
         }
@@ -972,17 +971,28 @@ var Vat = (function (_EventEmitter) {
     // the result is put into the tuple space.
   }, {
     key: 'addReaction',
-    value: function addReaction() /* patterns..., reaction */{
-      var args = arguments;
-      var reaction = args[args.length - 1];
-      var r;
-      if (arguments.length === 2) {
-        r = new Reaction({ pattern: args[0], callback: reaction });
+    value: function addReaction(pattOrConfig, optReactionFn) {
+      var pattern, patterns, callback, comparator;
+      if (!optReactionFn && typeof pattOrConfig === 'object') {
+        // jshint ignore: line
+        pattern = pattOrConfig.pattern;
+        patterns = pattOrConfig.patterns;
+        callback = pattOrConfig.callback;
+        comparator = pattOrConfig.comparator;
+        if (pattern && patterns) {
+          throw new Error('Use either `pattern` or `patterns`, but not both');
+        }
       } else {
-        r = new MultiReaction({
-          patterns: Array.prototype.slice.call(args, 0, args.length - 1),
-          callback: reaction
-        });
+        pattern = pattOrConfig;
+        callback = optReactionFn;
+      }
+
+      var r;
+      if (typeof patterns === 'object') {
+        console.log(patterns);
+        r = new MultiReaction({ patterns: patterns, callback: callback, comparator: comparator });
+      } else {
+        r = new Reaction({ pattern: pattern, callback: callback, comparator: comparator });
       }
       this._reactions.push(r);
       this._checkForMatches();

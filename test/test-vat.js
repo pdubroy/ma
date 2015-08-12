@@ -350,9 +350,12 @@ test('error on conflict', function(t) {
 test('multi-reactions', function(t) {
   var vat = new Vat();
   var sums = [];
-  vat.addReaction(isNumber, isNumber, function(values, a, b) {
-    sums.push(a + b);
-    return null;
+  vat.addReaction({
+    patterns: [isNumber, isNumber],
+    callback: function(values, a, b) {
+      sums.push(a + b);
+      return null;
+    }
   });
   vat.put(1);
   t.equal(sums.length, 0, "doesn't fire with only one match");
@@ -375,10 +378,22 @@ test('comparator', function(t) {
   vat.put(2);
   t.equal(vat.try_copy(isNumber), 1, 'sorted sequentially by default');
 
-  vat = new Vat(function(a, b) { return b.value - a.value; });
-  vat.put(1);
-  vat.put(2);
-  t.equal(vat.try_copy(isNumber), 2, 'sorted by value');
+  function compareValueDesc(a, b) { return b.value - a.value; }
+
+  vat.comparator = compareValueDesc;
+  t.equal(vat.try_copy(isNumber), 2, 'comparator for entire vat');
+
+  vat.comparator = null;
+  var numbers = [];
+  vat.addReaction({
+    pattern: isNumber,
+    comparator: compareValueDesc,
+    callback: function(_, x) {
+      numbers.push(x);
+      return null;
+    }
+  });
+  t.deepEqual([2, 1], numbers, 'reaction-specific comparator');
 
   t.end();
 });
