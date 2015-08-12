@@ -113,15 +113,15 @@ var _createClass = (function () {
   };
 })();
 
-var _get = function get(_x2, _x3, _x4) {
+var _get = function get(_x3, _x4, _x5) {
   var _again = true;_function: while (_again) {
-    var object = _x2,
-        property = _x3,
-        receiver = _x4;desc = parent = getter = undefined;_again = false;if (object === null) object = Function.prototype;var desc = Object.getOwnPropertyDescriptor(object, property);if (desc === undefined) {
+    var object = _x3,
+        property = _x4,
+        receiver = _x5;desc = parent = getter = undefined;_again = false;if (object === null) object = Function.prototype;var desc = Object.getOwnPropertyDescriptor(object, property);if (desc === undefined) {
       var parent = Object.getPrototypeOf(object);if (parent === null) {
         return undefined;
       } else {
-        _x2 = parent;_x3 = property;_x4 = receiver;_again = true;continue _function;
+        _x3 = parent;_x4 = property;_x5 = receiver;_again = true;continue _function;
       }
     } else if ('value' in desc) {
       return desc.value;
@@ -133,7 +133,7 @@ var _get = function get(_x2, _x3, _x4) {
   }
 };
 
-var marked0$0 = [getMatches, getDeepMatches, matchDeep].map(regeneratorRuntime.mark);
+var marked0$0 = [matchDeep].map(regeneratorRuntime.mark);
 
 function _classCallCheck(instance, Constructor) {
   if (!(instance instanceof Constructor)) {
@@ -220,146 +220,12 @@ function convertPattern(p) {
   });
 }
 
-// Helper which returns the index of the first match of `pattern` in `arr`.
-// It does not match deeply, and does not return the pattern bindings. Use
-// `getMatches` or `getDeepMatches` for those use cases.
-function find(arr, pattern) {
-  var firstMatch = gu.first(getMatches(arr, pattern));
-  return firstMatch ? firstMatch[0] : -1;
-}
-
-// Yields [index, bindings] for each match of `pattern` found in `arr`.
-function getMatches(arr, pattern) {
-  var p, i, bindings;
-  return regeneratorRuntime.wrap(function getMatches$(context$1$0) {
-    while (1) switch (context$1$0.prev = context$1$0.next) {
-      case 0:
-        p = convertPattern(pattern);
-        i = 0;
-
-      case 2:
-        if (!(i < arr.size)) {
-          context$1$0.next = 10;
-          break;
-        }
-
-        bindings = match(arr.get(i).value, p);
-
-        if (!bindings) {
-          context$1$0.next = 7;
-          break;
-        }
-
-        context$1$0.next = 7;
-        return [i, bindings];
-
-      case 7:
-        ++i;
-        context$1$0.next = 2;
-        break;
-
-      case 10:
-      case 'end':
-        return context$1$0.stop();
-    }
-  }, marked0$0[0], this);
-}
-
-// Yields an { index, root, path, bindings } for each deep match of `pattern`
-// found in any of the objects in `arr`.
-function getDeepMatches(arr, pattern) {
-  var p, path, i, root, _iteratorNormalCompletion, _didIteratorError, _iteratorError, _iterator, _step, _step$value, matchPath, bindings, rootPath;
-
-  return regeneratorRuntime.wrap(function getDeepMatches$(context$1$0) {
-    while (1) switch (context$1$0.prev = context$1$0.next) {
-      case 0:
-        p = convertPattern(pattern);
-        i = 0;
-
-      case 2:
-        if (!(i < arr.size)) {
-          context$1$0.next = 37;
-          break;
-        }
-
-        path = [i];
-        root = arr.get(i).value;
-        _iteratorNormalCompletion = true;
-        _didIteratorError = false;
-        _iteratorError = undefined;
-        context$1$0.prev = 8;
-        _iterator = matchDeep(root, p, path)[Symbol.iterator]();
-
-      case 10:
-        if (_iteratorNormalCompletion = (_step = _iterator.next()).done) {
-          context$1$0.next = 20;
-          break;
-        }
-
-        _step$value = _slicedToArray(_step.value, 2);
-        matchPath = _step$value[0];
-        bindings = _step$value[1];
-        rootPath = matchPath.slice(1);
-        context$1$0.next = 17;
-        return { index: matchPath[0], root: root, path: rootPath, bindings: bindings };
-
-      case 17:
-        _iteratorNormalCompletion = true;
-        context$1$0.next = 10;
-        break;
-
-      case 20:
-        context$1$0.next = 26;
-        break;
-
-      case 22:
-        context$1$0.prev = 22;
-        context$1$0.t0 = context$1$0['catch'](8);
-        _didIteratorError = true;
-        _iteratorError = context$1$0.t0;
-
-      case 26:
-        context$1$0.prev = 26;
-        context$1$0.prev = 27;
-
-        if (!_iteratorNormalCompletion && _iterator['return']) {
-          _iterator['return']();
-        }
-
-      case 29:
-        context$1$0.prev = 29;
-
-        if (!_didIteratorError) {
-          context$1$0.next = 32;
-          break;
-        }
-
-        throw _iteratorError;
-
-      case 32:
-        return context$1$0.finish(29);
-
-      case 33:
-        return context$1$0.finish(26);
-
-      case 34:
-        ++i;
-        context$1$0.next = 2;
-        break;
-
-      case 37:
-      case 'end':
-        return context$1$0.stop();
-    }
-  }, marked0$0[1], this, [[8, 22, 26, 34], [27,, 29, 33]]);
-}
-
 // Generator that recursively tries to match `obj` with `pattern`.
 // For each match, yields an array [path, bindings].
 function matchDeep(obj, pattern) {
   var path = arguments.length <= 2 || arguments[2] === undefined ? [] : arguments[2];
 
-  var bindings, isList, isMap, _iteratorNormalCompletion2, _didIteratorError2, _iteratorError2, _iterator2, _step2, entry;
+  var bindings, isList, isMap, _iteratorNormalCompletion, _didIteratorError, _iteratorError, _iterator, _step, entry;
 
   return regeneratorRuntime.wrap(function matchDeep$(context$1$0) {
     while (1) switch (context$1$0.prev = context$1$0.next) {
@@ -385,23 +251,23 @@ function matchDeep(obj, pattern) {
           break;
         }
 
-        _iteratorNormalCompletion2 = true;
-        _didIteratorError2 = false;
-        _iteratorError2 = undefined;
+        _iteratorNormalCompletion = true;
+        _didIteratorError = false;
+        _iteratorError = undefined;
         context$1$0.prev = 11;
-        _iterator2 = obj.entries()[Symbol.iterator]();
+        _iterator = obj.entries()[Symbol.iterator]();
 
       case 13:
-        if (_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done) {
+        if (_iteratorNormalCompletion = (_step = _iterator.next()).done) {
           context$1$0.next = 19;
           break;
         }
 
-        entry = _step2.value;
+        entry = _step.value;
         return context$1$0.delegateYield(matchDeep(entry[1], pattern, path.concat(entry[0])), 't0', 16);
 
       case 16:
-        _iteratorNormalCompletion2 = true;
+        _iteratorNormalCompletion = true;
         context$1$0.next = 13;
         break;
 
@@ -412,26 +278,26 @@ function matchDeep(obj, pattern) {
       case 21:
         context$1$0.prev = 21;
         context$1$0.t1 = context$1$0['catch'](11);
-        _didIteratorError2 = true;
-        _iteratorError2 = context$1$0.t1;
+        _didIteratorError = true;
+        _iteratorError = context$1$0.t1;
 
       case 25:
         context$1$0.prev = 25;
         context$1$0.prev = 26;
 
-        if (!_iteratorNormalCompletion2 && _iterator2['return']) {
-          _iterator2['return']();
+        if (!_iteratorNormalCompletion && _iterator['return']) {
+          _iterator['return']();
         }
 
       case 28:
         context$1$0.prev = 28;
 
-        if (!_didIteratorError2) {
+        if (!_didIteratorError) {
           context$1$0.next = 31;
           break;
         }
 
-        throw _iteratorError2;
+        throw _iteratorError;
 
       case 31:
         return context$1$0.finish(28);
@@ -443,7 +309,7 @@ function matchDeep(obj, pattern) {
       case 'end':
         return context$1$0.stop();
     }
-  }, marked0$0[2], this, [[11, 21, 25, 33], [26,, 28, 32]]);
+  }, marked0$0[0], this, [[11, 21, 25, 33], [26,, 28, 32]]);
 }
 
 // Return true if `r1`, and `r2` are conflicting reactions, otherwise false.
@@ -485,6 +351,147 @@ var Vat = (function (_EventEmitter) {
       this._reactions = [];
       this._observers = [];
     }
+
+    // Helper which returns the index of the first match of `pattern` in `arr`.
+    // It does not match deeply, and does not return the pattern bindings. Use
+    // `_getMatches` or `_getDeepMatches` for those use cases.
+  }, {
+    key: 'find',
+    value: function find(pattern) {
+      var firstMatch = gu.first(this._getMatches(pattern));
+      return firstMatch ? firstMatch[0] : -1;
+    }
+
+    // Yields [index, bindings] for each match of `pattern` found in `arr`.
+  }, {
+    key: '_getMatches',
+    value: regeneratorRuntime.mark(function _getMatches(pattern) {
+      var store = arguments.length <= 1 || arguments[1] === undefined ? this._store : arguments[1];
+      var p, i, bindings;
+      return regeneratorRuntime.wrap(function _getMatches$(context$2$0) {
+        while (1) switch (context$2$0.prev = context$2$0.next) {
+          case 0:
+            p = convertPattern(pattern);
+            i = 0;
+
+          case 2:
+            if (!(i < store.size)) {
+              context$2$0.next = 10;
+              break;
+            }
+
+            bindings = match(store.get(i).value, p);
+
+            if (!bindings) {
+              context$2$0.next = 7;
+              break;
+            }
+
+            context$2$0.next = 7;
+            return [i, bindings];
+
+          case 7:
+            ++i;
+            context$2$0.next = 2;
+            break;
+
+          case 10:
+          case 'end':
+            return context$2$0.stop();
+        }
+      }, _getMatches, this);
+    })
+
+    // Yields an { index, root, path, bindings } for each deep match of `pattern`
+    // found in any of the objects in `arr`.
+  }, {
+    key: '_getDeepMatches',
+    value: regeneratorRuntime.mark(function _getDeepMatches(pattern) {
+      var p, path, i, root, _iteratorNormalCompletion2, _didIteratorError2, _iteratorError2, _iterator2, _step2, _step2$value, matchPath, bindings, rootPath;
+
+      return regeneratorRuntime.wrap(function _getDeepMatches$(context$2$0) {
+        while (1) switch (context$2$0.prev = context$2$0.next) {
+          case 0:
+            p = convertPattern(pattern);
+            i = 0;
+
+          case 2:
+            if (!(i < this._store.size)) {
+              context$2$0.next = 37;
+              break;
+            }
+
+            path = [i];
+            root = this._store.get(i).value;
+            _iteratorNormalCompletion2 = true;
+            _didIteratorError2 = false;
+            _iteratorError2 = undefined;
+            context$2$0.prev = 8;
+            _iterator2 = matchDeep(root, p, path)[Symbol.iterator]();
+
+          case 10:
+            if (_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done) {
+              context$2$0.next = 20;
+              break;
+            }
+
+            _step2$value = _slicedToArray(_step2.value, 2);
+            matchPath = _step2$value[0];
+            bindings = _step2$value[1];
+            rootPath = matchPath.slice(1);
+            context$2$0.next = 17;
+            return { index: matchPath[0], root: root, path: rootPath, bindings: bindings };
+
+          case 17:
+            _iteratorNormalCompletion2 = true;
+            context$2$0.next = 10;
+            break;
+
+          case 20:
+            context$2$0.next = 26;
+            break;
+
+          case 22:
+            context$2$0.prev = 22;
+            context$2$0.t0 = context$2$0['catch'](8);
+            _didIteratorError2 = true;
+            _iteratorError2 = context$2$0.t0;
+
+          case 26:
+            context$2$0.prev = 26;
+            context$2$0.prev = 27;
+
+            if (!_iteratorNormalCompletion2 && _iterator2['return']) {
+              _iterator2['return']();
+            }
+
+          case 29:
+            context$2$0.prev = 29;
+
+            if (!_didIteratorError2) {
+              context$2$0.next = 32;
+              break;
+            }
+
+            throw _iteratorError2;
+
+          case 32:
+            return context$2$0.finish(29);
+
+          case 33:
+            return context$2$0.finish(26);
+
+          case 34:
+            ++i;
+            context$2$0.next = 2;
+            break;
+
+          case 37:
+          case 'end':
+            return context$2$0.stop();
+        }
+      }, _getDeepMatches, this, [[8, 22, 26, 34], [27,, 29, 33]]);
+    })
   }, {
     key: '_updateStore',
     value: function _updateStore(updateFn) {
@@ -618,7 +625,7 @@ var Vat = (function (_EventEmitter) {
           // fire twice on the same object, so when the observer is first added,
           // test it on all the objects in the vat, and after that, only test it
           // on new objects that are added.
-          var matches = gu.filter(getDeepMatches(_this3._store, r.pattern), accept);
+          var matches = gu.filter(_this3._getDeepMatches(r.pattern), accept);
           matches.forEach(function (m) {
             var i = m.index;
             if (!candidates.hasOwnProperty(i)) candidates[i] = [];
@@ -666,12 +673,14 @@ var Vat = (function (_EventEmitter) {
   }, {
     key: '_runMultiReaction',
     value: function _runMultiReaction(r) {
+      var _this5 = this;
+
       var newStore = this._store;
       var values = [];
       var allBindings = [];
       var succeeded = r.patterns.every(function (p) {
         // Basically, do a try_take.
-        var match = gu.first(getMatches(newStore, p));
+        var match = gu.first(_this5._getMatches(p, newStore));
         if (!match) {
           return false;
         }
@@ -702,7 +711,7 @@ var Vat = (function (_EventEmitter) {
   }, {
     key: '_executeReactions',
     value: function _executeReactions(candidates) {
-      var _this5 = this;
+      var _this6 = this;
 
       // To detect conflicts, keep track of all paths that are touched.
       var reactionPaths = Object.create(null);
@@ -730,14 +739,14 @@ var Vat = (function (_EventEmitter) {
           }
           reactionPaths[pathString] = reaction;
 
-          _this5._runReaction(reaction, match);
+          _this6._runReaction(reaction, match);
         });
       });
     }
   }, {
     key: 'put',
     value: function put(value) {
-      var _this6 = this;
+      var _this7 = this;
 
       // Update the store.
       var storedObj = {
@@ -745,7 +754,7 @@ var Vat = (function (_EventEmitter) {
         reactions: new WeakMap()
       };
       this._updateStore(function () {
-        return _this6._store.push(storedObj);
+        return _this7._store.push(storedObj);
       });
       this._checkForMatches();
     }
@@ -765,7 +774,7 @@ var Vat = (function (_EventEmitter) {
   }, {
     key: 'try_copy',
     value: function try_copy(pattern) {
-      var i = find(this._store, pattern);
+      var i = this.find(pattern);
       return i >= 0 ? this._store.get(i).value : null;
     }
   }, {
@@ -776,25 +785,25 @@ var Vat = (function (_EventEmitter) {
   }, {
     key: 'try_copy_all',
     value: function try_copy_all(pattern) {
-      var _this7 = this;
+      var _this8 = this;
 
-      var matches = gu.toArray(getMatches(this._store, pattern));
+      var matches = gu.toArray(this._getMatches(pattern));
       return matches.map(function (arr) {
-        return _this7._store.get(arr[0]).value;
+        return _this8._store.get(arr[0]).value;
       });
     }
   }, {
     key: 'try_take',
     value: function try_take(pattern, deep) {
       if (deep) {
-        var result = gu.first(getDeepMatches(this._store, pattern));
+        var result = gu.first(this._getDeepMatches(pattern));
         if (result) {
           this._removeAt(result.index);
           return [result.root, result.path];
         }
         return null;
       }
-      var i = find(this._store, pattern);
+      var i = this.find(pattern);
       return i >= 0 ? this._removeAt(i) : null;
     }
   }, {
@@ -807,7 +816,7 @@ var Vat = (function (_EventEmitter) {
     value: function try_take_all(pattern, deep) {
       var matches;
       if (deep) {
-        matches = gu.toArray(getDeepMatches(this._store, pattern));
+        matches = gu.toArray(this._getDeepMatches(pattern));
         this._removeAll(matches.map(function (m) {
           return m.index;
         }));
@@ -815,7 +824,7 @@ var Vat = (function (_EventEmitter) {
           return [m.root, m.path];
         });
       } else {
-        matches = gu.toArray(getMatches(this._store, pattern));
+        matches = gu.toArray(this._getMatches(pattern));
         return this._removeAll(matches.map(function (arr) {
           return arr[0];
         }));
