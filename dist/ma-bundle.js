@@ -159,9 +159,13 @@ require('../third_party/weakmap.js');
 var match = pm.match,
     Pattern = pm.Pattern;
 
+var StoreEntry = Immutable.Record({ value: null, key: -1 });
+
 var Reaction = Immutable.Record({ pattern: null, callback: null, comparator: null }, 'Reaction');
 var Observer = Immutable.Record({ pattern: null, callback: null, comparator: null }, 'Observer');
 var MultiReaction = Immutable.Record({ patterns: null, callback: null, comparator: null }, 'MultiReaction');
+
+var combinations = Immutable.Set();
 
 // Custom walker for walking immutable-js objects.
 var immutableWalker = walk(function (node) {
@@ -704,19 +708,14 @@ var Vat = (function (_EventEmitter) {
         } else {
           // Prevent this reaction from matching against objects it's already matched.
           // FIXME: This should really check for a match _at the same path_.
-          // TODO: I think this could be vastly simplified. Only an Observer can
-          // fire twice on the same object, so when the observer is first added,
-          // test it on all the objects in the vat, and after that, only test it
-          // on new objects that are added.
-          var accept = function accept(m) {
-            var record = _this3._store.get(m.index);
-            if (!record.reactions.has(r)) {
-              record.reactions.set(r, true);
+          var alreadyCombined = function alreadyCombined(m) {
+            var k = Immutable.List.of(r, _this3._store.get(m.index));
+            if (combinations.has(k)) {
               return true;
             }
-            return false;
+            combinations = combinations.add(k);
           };
-          var matches = Immutable.Seq(_this3._getDeepMatches(r.pattern, r.comparator)).filter(accept).map(function (m) {
+          var matches = Immutable.Seq(_this3._getDeepMatches(r.pattern, r.comparator)).filterNot(alreadyCombined).map(function (m) {
             return [r, m];
           });
           candidates = candidates.mergeWith(function (prev, next) {
@@ -880,11 +879,7 @@ var Vat = (function (_EventEmitter) {
       var _this6 = this;
 
       // Update the store.
-      var storedObj = {
-        value: Immutable.fromJS(value),
-        key: this._nextKey++,
-        reactions: new WeakMap()
-      };
+      var storedObj = new StoreEntry({ value: Immutable.fromJS(value), key: this._nextKey++ });
       this._updateStore(function () {
         return _this6._store.set(storedObj.key, storedObj);
       });
