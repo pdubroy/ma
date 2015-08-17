@@ -8,6 +8,7 @@ var ma = require('..');
 
 var Vat = ma.Vat;
 var _ = ma.match.ANY;
+var ALL = ma.match.ALL;
 
 // Helpers
 // -------
@@ -350,6 +351,7 @@ test('error on conflict', function(t) {
 test('multi-reactions', function(t) {
   var vat = new Vat();
   var sums = [];
+
   vat.addReaction({
     patterns: [isNumber, isNumber],
     callback: function(values, a, b) {
@@ -369,6 +371,23 @@ test('multi-reactions', function(t) {
   t.equal(sums.length, 2, 'fires again');
   t.equal(sums[1], 7);
 
+  t.end();
+});
+
+test('multi-reactions with all', function(t) {
+  var vat = new Vat();
+  vat.put(1);
+  vat.put(2);
+  vat.put(3);
+  t.plan(2);
+  vat.addReaction({
+    patterns: [_, ALL(isNumber)],
+    callback: function(values, x, arr) {
+      t.deepEqual(arr, [2, 3]);
+      t.equal(vat.size(), 0);
+      return null;
+    }
+  });
   t.end();
 });
 

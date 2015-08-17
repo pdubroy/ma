@@ -209,6 +209,14 @@ var reaction = Pattern.extend({
   arity: 0
 });
 
+function all(p) {
+  if (!(this instanceof all)) {
+    // jshint ignore: line
+    return new all(p);
+  }
+  this.pattern = p; // jshint ignore: line
+}
+
 // Private helpers
 // ---------------
 
@@ -346,9 +354,6 @@ var Vat = (function (_EventEmitter) {
     this._history.put(this._store);
   }
 
-  // Exports
-  // -------
-
   _createClass(Vat, [{
     key: '_init',
     value: function _init() {
@@ -381,16 +386,29 @@ var Vat = (function (_EventEmitter) {
       return regeneratorRuntime.wrap(function _getMatches$(context$2$0) {
         while (1) switch (context$2$0.prev = context$2$0.next) {
           case 0:
+            if (!(pattern instanceof all)) {
+              context$2$0.next = 5;
+              break;
+            }
+
+            context$2$0.next = 3;
+            return gu.toArray(this._getMatches(pattern.pattern, store));
+
+          case 3:
+            context$2$0.next = 36;
+            break;
+
+          case 5:
             p = convertPattern(pattern);
             _iteratorNormalCompletion2 = true;
             _didIteratorError2 = false;
             _iteratorError2 = undefined;
-            context$2$0.prev = 4;
+            context$2$0.prev = 9;
             _iterator2 = store.sort(this.comparator)[Symbol.iterator]();
 
-          case 6:
+          case 11:
             if (_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done) {
-              context$2$0.next = 17;
+              context$2$0.next = 22;
               break;
             }
 
@@ -400,57 +418,57 @@ var Vat = (function (_EventEmitter) {
             bindings = match(obj.value, p);
 
             if (!bindings) {
-              context$2$0.next = 14;
+              context$2$0.next = 19;
               break;
             }
 
-            context$2$0.next = 14;
+            context$2$0.next = 19;
             return [key, bindings];
 
-          case 14:
-            _iteratorNormalCompletion2 = true;
-            context$2$0.next = 6;
-            break;
-
-          case 17:
-            context$2$0.next = 23;
-            break;
-
           case 19:
-            context$2$0.prev = 19;
-            context$2$0.t0 = context$2$0['catch'](4);
+            _iteratorNormalCompletion2 = true;
+            context$2$0.next = 11;
+            break;
+
+          case 22:
+            context$2$0.next = 28;
+            break;
+
+          case 24:
+            context$2$0.prev = 24;
+            context$2$0.t0 = context$2$0['catch'](9);
             _didIteratorError2 = true;
             _iteratorError2 = context$2$0.t0;
 
-          case 23:
-            context$2$0.prev = 23;
-            context$2$0.prev = 24;
+          case 28:
+            context$2$0.prev = 28;
+            context$2$0.prev = 29;
 
             if (!_iteratorNormalCompletion2 && _iterator2['return']) {
               _iterator2['return']();
             }
 
-          case 26:
-            context$2$0.prev = 26;
+          case 31:
+            context$2$0.prev = 31;
 
             if (!_didIteratorError2) {
-              context$2$0.next = 29;
+              context$2$0.next = 34;
               break;
             }
 
             throw _iteratorError2;
 
-          case 29:
-            return context$2$0.finish(26);
+          case 34:
+            return context$2$0.finish(31);
 
-          case 30:
-            return context$2$0.finish(23);
+          case 35:
+            return context$2$0.finish(28);
 
-          case 31:
+          case 36:
           case 'end':
             return context$2$0.stop();
         }
-      }, _getMatches, this, [[4, 19, 23, 31], [24,, 26, 30]]);
+      }, _getMatches, this, [[9, 24, 28, 36], [29,, 31, 35]]);
     })
 
     // Yields { key, path, bindings } for each deep match of `pattern`
@@ -766,15 +784,29 @@ var Vat = (function (_EventEmitter) {
         if (!match) {
           return false;
         }
+        if (p instanceof all) {
+          var matchValues = match.map(function (_ref2) {
+            var _ref22 = _slicedToArray(_ref2, 2);
 
-        var _match = _slicedToArray(match, 2);
+            var index = _ref22[0];
+            var bindings = _ref22[1];
 
-        var index = _match[0];
-        var bindings = _match[1];
+            var result = newStore.get(index).value;
+            newStore = newStore['delete'](index);
+            return result;
+          });
+          values.push(matchValues);
+          allBindings.push(matchValues);
+        } else {
+          var _match = _slicedToArray(match, 2);
 
-        values.push(newStore.get(index).value);
-        allBindings = allBindings.concat(bindings);
-        newStore = newStore['delete'](index);
+          var index = _match[0];
+          var bindings = _match[1];
+
+          values.push(newStore.get(index).value);
+          allBindings = allBindings.concat(bindings);
+          newStore = newStore['delete'](index);
+        }
         return true;
       });
       if (succeeded) {
@@ -820,11 +852,11 @@ var Vat = (function (_EventEmitter) {
           var root = this._store.get(k).value;
 
           // Execute each reaction, detecting conflicts as we go.
-          sorted.forEach(function (_ref2) {
-            var _ref22 = _slicedToArray(_ref2, 2);
+          sorted.forEach(function (_ref3) {
+            var _ref32 = _slicedToArray(_ref3, 2);
 
-            var reaction = _ref22[0];
-            var match = _ref22[1];
+            var reaction = _ref32[0];
+            var match = _ref32[1];
 
             var path = match.path;
 
@@ -984,7 +1016,6 @@ var Vat = (function (_EventEmitter) {
 
       var r;
       if (typeof patterns === 'object') {
-        console.log(patterns);
         r = new MultiReaction({ patterns: patterns, callback: callback, comparator: comparator });
       } else {
         r = new Reaction({ pattern: pattern, callback: callback, comparator: comparator });
@@ -1024,6 +1055,11 @@ var Vat = (function (_EventEmitter) {
 
   return Vat;
 })(EventEmitter);
+
+Vat.all = all;
+
+// Exports
+// -------
 
 module.exports = Vat;
 
@@ -12227,10 +12263,13 @@ if (typeof WeakMap === 'undefined') {
 
 require('babel/polyfill');
 
+var Vat = require('./lib/vat');
+
 module.exports = {
-  Vat: require('./lib/vat'),
+  Vat: Vat,
   match: {
-    ANY: require('./third_party/pattern-match').Matcher._
+    ANY: require('./third_party/pattern-match').Matcher._,
+    ALL: Vat.all
   }
 };
 
