@@ -811,6 +811,7 @@ var Vat = (function (_EventEmitter) {
       });
       if (succeeded) {
         // Update the store without recording history.
+        var store = this._store;
         this._store = newStore;
 
         var arity = r.callback.length;
@@ -818,12 +819,13 @@ var Vat = (function (_EventEmitter) {
         assert(arity === expectedArity, 'Bad function arity: expected ' + expectedArity + ', got ' + arity);
 
         var newRoot = r.callback.apply(null, [values].concat(allBindings));
-        if (newRoot === void 0) {
-          throw new TypeError('Reactions must return a value');
-        }
-        if (newRoot !== null) {
-          this.put(newRoot);
-        }
+        if (newRoot === Vat.ABORT) {
+          this._store = store; // Restore the store to its original state.
+        } else if (newRoot === void 0) {
+            throw new TypeError('Reactions must return a value');
+          } else if (newRoot !== null) {
+            this.put(newRoot);
+          }
       }
     }
   }, {
@@ -870,6 +872,7 @@ var Vat = (function (_EventEmitter) {
 
             // Remove the element from the store when we encounter the first
             // non-observer reaction.
+            var store = _this5._store;
             if (reaction instanceof Reaction && _this5._store.has(match.index)) {
               _this5._doWithoutHistory(function () {
                 return _this5._removeAt(match.index);
@@ -877,12 +880,15 @@ var Vat = (function (_EventEmitter) {
             }
 
             var result = _this5._runReaction(reaction, root, match);
-
-            // The object can be modified as reactions run against it, but this
-            // can only happen with deep reactions that are operating on
-            // different parts of the object, so there can't be conflicts.
-            if (reaction instanceof Reaction) {
-              root = result;
+            if (result === Vat.ABORT) {
+              _this5._store = store;
+            } else {
+              // The object can be modified as reactions run against it, but this
+              // can only happen with deep reactions that are operating on
+              // different parts of the object, so there can't be conflicts.
+              if (reaction instanceof Reaction) {
+                root = result;
+              }
             }
           });
           // If the original object was removed, replace it with the final result.
@@ -1057,6 +1063,7 @@ var Vat = (function (_EventEmitter) {
 })(EventEmitter);
 
 Vat.all = all;
+Vat.ABORT = {};
 
 // Exports
 // -------

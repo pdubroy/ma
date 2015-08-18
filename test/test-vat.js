@@ -417,3 +417,27 @@ test('comparator', function(t) {
   t.end();
 });
 
+test('aborting reactions', function(t) {
+  var vat = new Vat();
+  t.plan(6);
+  vat.addReaction(isNumber, function(tup, x) {
+    t.pass('reaction is hit');
+    return Vat.ABORT;
+  });
+  vat.put(2);
+  t.ok(vat.try_copy(2));
+
+  vat.addReaction({
+    patterns: [isNumber, _],
+    callback: function(vals, x, y) {
+     t.pass('second reaction is hit');
+      return Vat.ABORT;
+    }
+  });
+  vat.put('a');
+  t.ok(vat.try_take(2));
+  t.ok(vat.try_take('a'));
+  t.equal(vat.size(), 0, 'vat is empty now');
+
+  t.end();
+});
