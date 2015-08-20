@@ -34,12 +34,12 @@
         font-size: 24px;
         margin: 4px;
         padding: 8px 24px;
-        position: relative;
+        position: absolute;
       }
       .item.dragging {
         color: white;
         box-shadow: none;
-        border: 1px solid #eee;
+        opacity: 0.2;
       }
       input {
         border: 1px solid #ccc;
@@ -86,13 +86,17 @@
         }
       }
 
+      function rand(s, m) {
+        return (Math.random() + Math.random() + Math.random() + Math.random() + Math.random() + Math.random()) * s + m;
+      }
+
       // VatItem
       // -------
 
       // ReactDnD Helpers
 
       var cardSource = {
-        beginDrag: function (props) {
+        beginDrag: function (props, monitor) {
           return props.value;
         }
       };
@@ -115,7 +119,7 @@
           }
           var value = this.props.value;
           return connectDragSource(
-            <div style={{top: value.get('yOffset'), left: value.get('xOffset')}}
+            <div style={{top: value.get('offsetTop'), left: value.get('offsetLeft')}}
                  className={className}>
               {this.getLabel()}
             </div>
@@ -137,9 +141,10 @@
         },
         drop: function (props, monitor) {
           var delta = monitor.getDifferenceFromInitialOffset();
+          console.log(monitor.getItem().toJS());
           vat.update(monitor.getItem(), function(item) {
-            return item.set('xOffset', item.get('xOffset') + delta.x)
-                       .set('yOffset', item.get('yOffset') + delta.y);
+            return item.set('offsetLeft', item.get('offsetLeft') + delta.x)
+                       .set('offsetTop', item.get('offsetTop') + delta.y);
           });
         }
       };
@@ -215,13 +220,15 @@
       // ------
 
       // ------
-      // Process which gives all new objects an xOffset and yOffset field.
+      // Process which gives all new objects an offsetTop and offsetLeft field.
       function objWithoutOffsets(obj) {
-        return Immutable.Map.isMap(obj) && !obj.has('xOffset') && obj.has('id');
+        return Immutable.Map.isMap(obj) && !obj.has('offsetTop') && obj.has('id');
       }
       vat.addReaction(objWithoutOffsets, function(obj, _) {
-        return obj.set('xOffset', 0).set('yOffset', 0);
-      })
+        var top = Math.abs(rand(100, 0));
+        var left = Math.abs(rand(100, 0));
+        return obj.set('offsetTop', top).set('offsetLeft', left);
+      });
       // ------
 
       function isNumberTile(x) {
