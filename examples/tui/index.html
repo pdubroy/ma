@@ -4,17 +4,49 @@
     <meta http-equiv='Content-type' content='text/html; charset=utf-8'>
     <title>Basic Example with JSX and ES6 features</title>
     <style>
-      .vat {
-        border-radius: 2px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-        padding: 10px;
+      body {
+        font-family: Menlo, Monaco, sans-serif;
       }
-
+      html, body {
+        height: 100%;
+        margin: 0;
+      }
+      #container {
+        display: flex;
+        height: 100%;
+        flex-direction: column;
+      }
+      #container > div {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        padding: 16px;
+      }
+      .vat {
+        flex: 1;
+      }
       .item {
-        border: 1px solid #ddd;
+        background-color: white;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
         display: inline-block;
+        font-size: 24px;
         margin: 4px;
-        padding: 4px;
+        padding: 8px 24px;
+        position: relative;
+      }
+      .item.dragging {
+        color: white;
+        box-shadow: none;
+        border: 1px solid #eee;
+      }
+      input {
+        border: 1px solid #ccc;
+        font-size: 24px;
+        margin-bottom: 16px;
+        padding: 0.3em;
+        width: 40%;
       }
     </style>
   </head>
@@ -24,32 +56,225 @@
     </div>
     <script src="third_party/react-0.13.3/react.js"></script>
     <script src="third_party/react-0.13.3/JSXTransformer.js"></script>
+    <script src="third_party/ReactDnD.min.js"></script>
+    <script src="third_party/immutable.min.js"></script>
     <script src="../../dist/ma-bundle.js"></script>
     <script type="text/jsx;harmony=true">
       var _ = ma.match.ANY;
+      var ALL = ma.match.ALL;
+      var DragDropContext = ReactDnD.DragDropContext;
+      var DragSource = ReactDnD.DragSource;
+      var DropTarget = ReactDnD.DropTarget;
 
-      class VatView extends React.Component {
-        render() {
-          var items = this.props.vat.try_copy_all(_);
-          return <div className="vat">{items.map((x) => <VatItem value={x} />)}</div>;
+      function assert(cond, message) {
+        if (!cond) {
+          console.error(message || 'assertion failed');
         }
       }
+
+      function toJS(val) {
+        return typeof val.toJS === 'function' ? val.toJS() : val;
+      }
+
+      function isNumber(x) {
+        if (Object.prototype.toString.call(x) === '[object Number]') {
+          return true;
+        }
+        var val = toJS(x);
+        if (Array.isArray(val) && val.length === 3 && val[1] === "+") {
+          return true;
+        }
+      }
+
+      // VatItem
+      // -------
+
+      // ReactDnD Helpers
+
+      var cardSource = {
+        beginDrag: function (props) {
+          return props.value;
+        }
+      };
+
+      function collectSource(connect, monitor) {
+        return {
+          connectDragSource: connect.dragSource(),
+          isDragging: monitor.isDragging()
+        }
+      }
+
+      // VatItem Component
 
       class VatItem extends React.Component {
         render() {
-          return <div className="item">{JSON.stringify(this.props.value.toJS())}</div>;
+          var connectDragSource = this.props.connectDragSource;
+          var className = 'item';
+          if (this.props.isDragging) {
+            className += ' dragging';
+          }
+          var value = this.props.value;
+          return connectDragSource(
+            <div style={{top: value.get('yOffset'), left: value.get('xOffset')}}
+                 className={className}>
+              {this.getLabel()}
+            </div>
+          );
+        }
+        getLabel() {
+          return this.props.value.get('name');
         }
       }
 
-      var vat = new ma.Vat();
-      vat.addObserver(_, function(t, x) { console.log(x); });
-      vat.put({ hey: 'there' });
+      var Card = DragSource('card', cardSource, collectSource)(VatItem);
 
-      var start = new Date().getTime();
-      React.render(
-        <VatView vat={vat} />,
-        document.getElementById('container')
+      // VatView
+      // -------
+
+      var viewTarget = {
+        canDrop: function (props) {
+          return true;
+        },
+        drop: function (props, monitor) {
+          var delta = monitor.getDifferenceFromInitialOffset();
+          vat.update(monitor.getItem(), function(item) {
+            return item.set('xOffset', item.get('xOffset') + delta.x)
+                       .set('yOffset', item.get('yOffset') + delta.y);
+          });
+        }
+      };
+
+      function collectTarget(connect, monitor) {
+        return {
+          connectDropTarget: connect.dropTarget(),
+          isOver: monitor.isOver(),
+          canDrop: monitor.canDrop()
+        };
+      }
+
+      class VatView extends React.Component {
+        constructor(props) {
+          super(props);
+          this.state = {inputValue: ''};
+        }
+        render() {
+          var items = this.props.vat.try_copy_all(_);
+          return this.props.connectDropTarget(
+              <div>
+                <input type="text"
+                    ref="nameInput"
+                    value={this.state.inputValue}
+                    onChange={this.handleChange.bind(this)}
+                    onKeyUp={this.handleKeyUp.bind(this)}></input>
+                <div className="vat">{
+                  items.map((x) => <Card value={x} />)
+                }</div>
+              </div>
+          );
+        }
+        componentDidMount() {
+          React.findDOMNode(this.refs.nameInput).focus();
+        }
+        handleKeyUp(e) {
+          if (e.keyCode === 13) {
+            var val = this.state.inputValue;
+            if (val === '+') {
+              vat.put([null, '+', null]);
+            } else {
+              vat.put(JSON.parse(val));
+            }
+            this.setState({inputValue: ''});
+          }
+        }
+        handleChange(e) {
+          this.setState({inputValue: e.target.value});
+        }
+      }
+
+      var DraggableVatView = DragDropContext(ReactDnD.HTML5)(
+          DropTarget('card', viewTarget, collectTarget)(VatView)
       );
+
+      // Main
+      // ----
+
+      var vat = new ma.Vat();
+      vat.comparator = function(a, b) {
+        return a.value.get('id') - b.value.get('id');
+      }
+      var id = 0;
+
+      // ------
+      // Process which gives all new objects an 'id' field.
+      function objWithoutId(obj) {
+        return Immutable.Map.isMap(obj) && !obj.has('id');
+      }
+      vat.addReaction(objWithoutId, function(obj, _) {
+        return obj.set('id', id++);
+      });
+      // ------
+
+      // ------
+      // Process which gives all new objects an xOffset and yOffset field.
+      function objWithoutOffsets(obj) {
+        return Immutable.Map.isMap(obj) && !obj.has('xOffset') && obj.has('id');
+      }
+      vat.addReaction(objWithoutOffsets, function(obj, _) {
+        return obj.set('xOffset', 0).set('yOffset', 0);
+      })
+      // ------
+
+      function isNumberTile(x) {
+        return Immutable.Map.isMap(x) && x.has('numValue') && x.has('id');
+      }
+
+      function sortById(a, b) {
+        return a.id - b.id;
+      }
+
+      // Bind the left if unbound.
+      vat.addReaction({
+        patterns: [{id: _, name: '+', x: null, y: _}, ALL(isNumberTile)],
+        callback: function(tup, id, r, numbers) {
+          numbers = numbers.sort(sortById).filter(function(x) {
+            return x.get('id') < id;
+          });
+          if (numbers.length === 0) {
+            return ma.Vat.ABORT;
+          }
+          var num = numbers.pop();
+
+          var tileObj = tup[0];
+          return tileObj.set('x', num);
+        }
+      });
+
+      // Bind the right if unbound.
+      /*
+      vat.addReaction({
+        patterns: [{id: _, op: '+', left: _, right: null}, ALL(isNumberTile)],
+        callback: function(tup, id, l, numbers) {
+          return null;
+//          return [x, '+', y];
+        }
+      });
+*/
+
+      function test() {
+        vat.put({name: '+', x: null, y: null});
+        vat.put({name: '3'});
+//        assert(vat.size() === 2);
+
+        vat.put({name: '+', x: null, y: null});
+//        assert(vat.size() === 2);
+      }
+      test();
+
+      var container = document.getElementById('container');
+      vat.on('change', function() {
+        React.render(<DraggableVatView vat={vat} />, container);
+      });
+      React.render(<DraggableVatView vat={vat} />, container);
 
       // TODO:
       // - Need to be able to observe deletions somehow.
@@ -58,6 +283,7 @@
       //   - some other way of dealing with these events?
       // - Need to be able to do a take_all in an observer/reaction.
       // - Move reactions/observers out of the main tuple space.
+      // - Need to be able to take multiple objects at once!
     </script>
   </body>
 </html>
