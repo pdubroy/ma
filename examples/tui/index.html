@@ -182,12 +182,13 @@
         }
         handleKeyUp(e) {
           if (e.keyCode === 13) {
-            var val = this.state.inputValue;
-            if (val === '+') {
-              vat.put([null, '+', null]);
-            } else {
-              vat.put(JSON.parse(val));
+            var name = this.state.inputValue;
+            var value = {name: name};
+            if (name.length === 1 && '+-*/'.indexOf(name) >= 0) {
+              value.x = null;
+              value.y = null;
             }
+            vat.put(value);
             this.setState({inputValue: ''});
           }
         }
