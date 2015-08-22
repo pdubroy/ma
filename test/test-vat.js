@@ -8,28 +8,12 @@ var ma = require('..');
 
 var Vat = ma.Vat;
 var _ = ma.match.ANY;
-var ALL = ma.match.ALL;
 
 // Helpers
 // -------
 
 function isNumber(x) {
   return Object.prototype.toString.call(x) === '[object Number]';
-}
-
-function odd(x) {
-  return isNumber(x) && (x % 2 === 1);
-}
-
-function even(x) {
-  return isNumber(x) && (x % 2 === 0);
-}
-
-function noop2(val, v1) {}
-function noop3(val, v1, v2) {}
-
-function always2(result) {
-  return function (val, v1) { return result; };
 }
 
 // Tests
@@ -157,7 +141,11 @@ test('blocking take/copy', function(t) {
     t.ok(vat.try_copy([_]));
   });
   vat.put(['z']);
+  vat.step();
+
   vat.put([0], 'should not trigger the callback again');
+  vat.step();
+
   vat.take([_], function() {
     t.ok(vat.try_take([_]));
     t.notOk(vat.try_take[_]);
@@ -170,10 +158,12 @@ test('blocking take/copy', function(t) {
   });
   // A non-matching tuple shouldn't trigger the callback.
   vat.put([0, 1]);
+  vat.step();
 
   // ...but a matching one should.
   ready = true;
   vat.put(['foo']);
+  vat.step();
 });
 
 test('deep matching', function(t) {
@@ -212,185 +202,6 @@ test('deep matching with maps', function(t) {
   t.end();
 });
 
-test('ordering of reactions and values', function(t) {
-  var vat = new Vat();
-  vat.put({});
-
-  t.plan(1);
-  vat.addReaction(_, function(tup, x) {
-    t.pass('reaction fires immediately');
-    return null;
-  });
-  t.end();
-});
-
-test('reactions', function(t) {
-  var vat = new Vat();
-
-  vat.addReaction([_, '+', _, _], function(val, id, left, right) {
-    var result = left + right;
-    vat.addReaction([_, _, id, _], function(val, a, b, c) {
-      return [a, b, result, c];
-    });
-    vat.addReaction([_, _, _, id], function(val, a, b, c) {
-      return [a, b, c, result];
-    });
-    return null;
-  });
-
-  var id = '@@foo';
-  vat.put([0, 0, id, 0]);
-  vat.put([id, '+', 13, 3]);
-  t.ok(vat.try_copy([0, 0, 16, 0]), "'+' reaction fires");
-
-  vat.put([0, 0, 0, id]);
-  t.ok(vat.try_copy([0, 0, 0, 16]));
-
-  // Test that Immutable.List instances work as return values, not only Arrays.
-  vat.addReaction(['test'], function(t) {
-    return t.push('yes');
-  });
-  vat.put(['test']);
-  t.ok(vat.try_take(['test', 'yes']));
-
-// TODO: Re-enable when we figure out where reactions should live.
-//  t.equal(vat.try_take(r), r, 'reaction can be removed with `take`');
-
-  t.end();
-});
-
-test('deep reactions', function(t) {
-  var vat = new Vat();
-
-  vat.addReaction(['+', isNumber, isNumber], function(val, left, right) {
-    return left + right;
-  });
-
-  vat.addReaction(['*', isNumber, isNumber], function(val, left, right) {
-    return left * right;
-  });
-
-  vat.put(['+', 13, ['*', ['+', 3, 7], ['*', 1, 2]]]);
-  t.ok(vat.try_take(33));
-  t.notOk(vat.try_copy(isNumber));
-
-  t.end();
-});
-
-test('reaction bindings', function(t) {
-  var vat = new Vat();
-
-  vat.addReaction(['hello', _], function(val, arg1) {
-    t.equal(val.get(0), 'hello');
-    return arg1;
-  });
-  vat.put(['hello', 'world']);
-  t.ok(vat.try_take('world'));
-  vat.put(['hello', 'goodbye']);
-  t.ok(vat.try_take('goodbye'));
-
-  vat.addReaction(['add', [_], _], function(val, arg1, arg2) {
-    return arg1 + arg2;
-  });
-  vat.put(['add', [3], 7]);
-  t.equal(vat.try_take(10), 10);
-
-  t.end();
-});
-
-test('observer triggering', function(t) {
-  var count = 0;
-  var vat = new Vat();
-
-  // An observer which increments a counter each time it fires.
-  vat.addObserver(['x', _], function(t, x) { ++count; });
-
-  vat.put(['x', 0]);
-  t.equal(count, 1, 'observer was triggered');
-  vat.put(99);
-  t.equal(count, 1, 'observer was not triggered again');
-
-  vat.put(['x', 6]);
-  t.equal(count, 2, 'observer triggered once more');
-
-  t.ok(vat.try_take([_, _]));
-  t.equal(count, 2, 'observer not triggered');
-
-  t.ok(vat.try_take([_, _]));
-  t.equal(count, 2, 'observer not triggered');
-
-  t.end();
-});
-
-test('error on conflict', function(t) {
-  var vat = new Vat();
-
-  vat.addReaction(odd, always2(null));
-  vat.addReaction(even, always2(null));
-  vat.put([1, 2]);  // Should not conflict.
-
-  vat.addObserver([_, _], noop3);
-  t.throws(function() { vat.put([2, 3]); }, /conflict/, 'observer conflicts with reactions');
-
-  vat = new Vat();
-  vat.addObserver(isNumber, noop2);
-  vat.addObserver(even, noop2);
-  vat.put(2);  // No conflict for two observers.
-
-  vat.addReaction(odd, always2(null));
-  t.throws(function() { vat.put(1); }, /conflict/, 'reaction conflicts with observer');
-
-  vat = new Vat();
-  vat.addReaction(isNumber, always2(null));
-  vat.addReaction(odd, always2(null));
-  t.throws(function() { vat.put(1); }, /conflict/, 'reaction conflicts with other reaction');
-
-  t.end();
-});
-
-test('multi-reactions', function(t) {
-  var vat = new Vat();
-  var sums = [];
-
-  vat.addReaction({
-    patterns: [isNumber, isNumber],
-    callback: function(values, a, b) {
-      sums.push(a + b);
-      return null;
-    }
-  });
-  vat.put(1);
-  t.equal(sums.length, 0, "doesn't fire with only one match");
-  vat.put(2);
-  t.equal(sums.length, 1, 'fires when both patterns can be matched');
-  t.equal(sums[0], 3);
-
-  vat.put(3);
-  t.equal(sums.length, 1, "doesn't fire again yet");
-  vat.put(4);
-  t.equal(sums.length, 2, 'fires again');
-  t.equal(sums[1], 7);
-
-  t.end();
-});
-
-test('multi-reactions with all', function(t) {
-  var vat = new Vat();
-  vat.put(1);
-  vat.put(2);
-  vat.put(3);
-  t.plan(2);
-  vat.addReaction({
-    patterns: [_, ALL(isNumber)],
-    callback: function(values, x, arr) {
-      t.deepEqual(arr, [2, 3]);
-      t.equal(vat.size(), 0);
-      return null;
-    }
-  });
-  t.end();
-});
-
 test('comparator', function(t) {
   var vat = new Vat();
   vat.put(1);
@@ -402,21 +213,10 @@ test('comparator', function(t) {
   vat.comparator = compareValueDesc;
   t.equal(vat.try_copy(isNumber), 2, 'comparator for entire vat');
 
-  vat.comparator = null;
-  var numbers = [];
-  vat.addReaction({
-    pattern: isNumber,
-    comparator: compareValueDesc,
-    callback: function(_, x) {
-      numbers.push(x);
-      return null;
-    }
-  });
-  t.deepEqual([2, 1], numbers, 'reaction-specific comparator');
-
   t.end();
 });
 
+/*
 test('aborting reactions', function(t) {
   var vat = new Vat();
   t.plan(6);
@@ -441,3 +241,4 @@ test('aborting reactions', function(t) {
 
   t.end();
 });
+*/

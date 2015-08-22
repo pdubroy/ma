@@ -160,12 +160,7 @@ var match = pm.match,
     Pattern = pm.Pattern;
 
 var StoreEntry = Immutable.Record({ value: null, key: -1 });
-
-var Reaction = Immutable.Record({ pattern: null, callback: null, comparator: null }, 'Reaction');
-var Observer = Immutable.Record({ pattern: null, callback: null, comparator: null }, 'Observer');
-var MultiReaction = Immutable.Record({ patterns: null, callback: null, comparator: null }, 'MultiReaction');
-
-var combinations = Immutable.Set();
+//var combinations = Immutable.Set();
 
 // Custom walker for walking immutable-js objects.
 var immutableWalker = walk(function (node) {
@@ -195,20 +190,6 @@ var immutableList = Pattern.extend({
   }
 });
 
-// A pattern type which allows restricted matching on Reactions.
-var reaction = Pattern.extend({
-  init: function init(r) {
-    this.reaction = r;
-  },
-  match: function match(value, bindings) {
-    var r = this.reaction;
-    // Only match if the pattern and the callback are identical. More general
-    // matching on reactions needs more thought.
-    return (value instanceof Reaction || value instanceof Observer) && value.pattern === r.pattern && value.callback === r.callback;
-  },
-  arity: 0
-});
-
 function all(p) {
   if (!(this instanceof all)) {
     // jshint ignore: line
@@ -224,7 +205,6 @@ function convertPattern(p) {
   return immutableWalker.reduce(p, function (memo, node, key, parent) {
     if (Array.isArray(node)) return immutableList(memo || []);
     if (typeof node === 'function') return node;
-    if (node instanceof Reaction || node instanceof Observer) return reaction(node);
     if (node instanceof Immutable.Record) return immutableObj(memo || {}, node.constructor);
     if (node instanceof Object) return immutableObj(memo || {});
     assert(!memo);
@@ -326,12 +306,6 @@ function matchDeep(obj, pattern) {
   }, marked0$0[0], this, [[11, 23, 27, 35], [28,, 30, 34]]);
 }
 
-// Return true if `r1`, and `r2` are conflicting reactions, otherwise false.
-// For convenience, either argument -- or both -- may be undefined or null.
-function areReactionsConflicting(r1, r2) {
-  return r1 && r2 && (r1._name === 'Reaction' || r2._name === 'Reaction');
-}
-
 // Vat implementation
 // ------------------
 
@@ -360,8 +334,6 @@ var Vat = (function (_EventEmitter) {
       this._store = Immutable.Map();
       this._nextKey = 0;
       this._waiting = [];
-      this._reactions = [];
-      this._observers = [];
       this.comparator = null;
     }
 
@@ -712,229 +684,25 @@ var Vat = (function (_EventEmitter) {
       return result;
     }
   }, {
-    key: '_collectReactionCandidates',
-    value: function _collectReactionCandidates() {
-      var _ref,
-          _this3 = this;
-
-      // A Map of index : [[reaction, match], ...]
-      var candidates = Immutable.Map();
-      (_ref = []).concat.apply(_ref, arguments).forEach(function (r) {
-        if (r instanceof MultiReaction) {
-          // HACK: Don't add MultiReactions to candidates -- just run 'em directly.
-          _this3._runMultiReaction(r);
-        } else {
-          // Prevent this reaction from matching against objects it's already matched.
-          // FIXME: This should really check for a match _at the same path_.
-          var alreadyCombined = function alreadyCombined(m) {
-            var k = Immutable.List.of(r, _this3._store.get(m.index));
-            if (combinations.has(k)) {
-              return true;
-            }
-            combinations = combinations.add(k);
-          };
-          var matches = Immutable.Seq(_this3._getDeepMatches(r.pattern, r.comparator)).filterNot(alreadyCombined).map(function (m) {
-            return [r, m];
-          });
-          candidates = candidates.mergeWith(function (prev, next) {
-            return prev.concat(next);
-          }, matches.groupBy(function (arr) {
-            return arr[1].index;
-          }));
-        }
-      });
-      return candidates;
-    }
-  }, {
-    key: '_runReaction',
-    value: function _runReaction(r, root, match) {
-      var arity = r.callback.length;
-      var expectedArity = match.bindings.length + 1;
-      assert(arity === expectedArity, 'Bad function arity: expected ' + expectedArity + ', got ' + arity);
-
-      var newRoot;
-      if (match.path.length === 0) {
-        newRoot = r.callback.apply(null, [root].concat(match.bindings));
-      } else {
-        var value = root.getIn(match.path);
-        newRoot = root.updateIn(match.path, function () {
-          return r.callback.apply(null, [value].concat(match.bindings));
-        });
-      }
-
-      if (r instanceof Reaction) {
-        if (newRoot === void 0) {
-          throw new TypeError('Reactions must return a value');
-        }
-        return newRoot;
-      }
-      return root;
-    }
-  }, {
-    key: '_runMultiReaction',
-    value: function _runMultiReaction(r) {
-      var _this4 = this;
-
-      var newStore = this._store;
-      var values = [];
-      var allBindings = [];
-      var succeeded = r.patterns.every(function (p) {
-        // Basically, do a try_take.
-        var match = gu.first(_this4._getMatches(p, newStore));
-        if (!match) {
-          return false;
-        }
-        if (p instanceof all) {
-          var matchValues = match.map(function (_ref2) {
-            var _ref22 = _slicedToArray(_ref2, 2);
-
-            var index = _ref22[0];
-            var bindings = _ref22[1];
-
-            var result = newStore.get(index).value;
-            newStore = newStore['delete'](index);
-            return result;
-          });
-          values.push(matchValues);
-          allBindings.push(matchValues);
-        } else {
-          var _match = _slicedToArray(match, 2);
-
-          var index = _match[0];
-          var bindings = _match[1];
-
-          values.push(newStore.get(index).value);
-          allBindings = allBindings.concat(bindings);
-          newStore = newStore['delete'](index);
-        }
-        return true;
-      });
-      if (succeeded) {
-        // Update the store without recording history.
-        var store = this._store;
-        this._store = newStore;
-
-        var arity = r.callback.length;
-        var expectedArity = allBindings.length + 1;
-        assert(arity === expectedArity, 'Bad function arity: expected ' + expectedArity + ', got ' + arity);
-
-        var newRoot = r.callback.apply(null, [values].concat(allBindings));
-        if (newRoot === Vat.ABORT) {
-          this._store = store; // Restore the store to its original state.
-        } else if (newRoot === void 0) {
-            throw new TypeError('Reactions must return a value');
-          } else if (newRoot !== null) {
-            this.put(newRoot);
-          }
-      }
-    }
-  }, {
-    key: '_executeReactions',
-    value: function _executeReactions(candidates) {
-      var _this5 = this;
-
-      // To detect conflicts, keep track of all paths that are touched.
-      var reactionPaths = Object.create(null);
-      var _iteratorNormalCompletion6 = true;
-      var _didIteratorError6 = false;
-      var _iteratorError6 = undefined;
-
-      try {
-        for (var _iterator6 = candidates.entries()[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
-          var _step6$value = _slicedToArray(_step6.value, 2);
-
-          var k = _step6$value[0];
-          var reactions = _step6$value[1];
-
-          // Sort candidates based on path length (longest to shortest).
-          var sorted = reactions.sort(function (a, b) {
-            return a[1].path.length - b[1].path.length;
-          });
-
-          var root = this._store.get(k).value;
-
-          // Execute each reaction, detecting conflicts as we go.
-          sorted.forEach(function (_ref3) {
-            var _ref32 = _slicedToArray(_ref3, 2);
-
-            var reaction = _ref32[0];
-            var match = _ref32[1];
-
-            var path = match.path;
-
-            // Check all ancestor paths to see if one was already touched.
-            var pathString;
-            for (var j = 0; j <= path.length; ++j) {
-              pathString = [k].concat(path.slice(0, j)).join('/') + '/';
-              if (areReactionsConflicting(reactionPaths[pathString], reaction)) throw new Error('Reaction conflict');
-            }
-            reactionPaths[pathString] = reaction;
-
-            // Remove the element from the store when we encounter the first
-            // non-observer reaction.
-            var store = _this5._store;
-            if (reaction instanceof Reaction && _this5._store.has(match.index)) {
-              _this5._doWithoutHistory(function () {
-                return _this5._removeAt(match.index);
-              });
-            }
-
-            var result = _this5._runReaction(reaction, root, match);
-            if (result === Vat.ABORT) {
-              _this5._store = store;
-            } else {
-              // The object can be modified as reactions run against it, but this
-              // can only happen with deep reactions that are operating on
-              // different parts of the object, so there can't be conflicts.
-              if (reaction instanceof Reaction) {
-                root = result;
-              }
-            }
-          });
-          // If the original object was removed, replace it with the final result.
-          if (!this._store.has(k) && root !== null) {
-            this.put(root);
-          }
-        }
-      } catch (err) {
-        _didIteratorError6 = true;
-        _iteratorError6 = err;
-      } finally {
-        try {
-          if (!_iteratorNormalCompletion6 && _iterator6['return']) {
-            _iterator6['return']();
-          }
-        } finally {
-          if (_didIteratorError6) {
-            throw _iteratorError6;
-          }
-        }
-      }
-    }
-  }, {
     key: 'put',
     value: function put(value) {
-      var _this6 = this;
+      var _this3 = this;
 
       // Update the store.
       var storedObj = new StoreEntry({ value: Immutable.fromJS(value), key: this._nextKey++ });
       this._updateStore(function () {
-        return _this6._store.set(storedObj.key, storedObj);
+        return _this3._store.set(storedObj.key, storedObj);
       });
-      this._checkForMatches();
     }
   }, {
-    key: '_checkForMatches',
-    value: function _checkForMatches() {
+    key: 'step',
+    value: function step() {
       // A really naive version of deferred take/copy. This should
       // probably be written in a more efficient way.
       var self = this;
       this._waiting = this._waiting.filter(function (info) {
         return !self._try(info.pattern, info.op, info.callback);
       });
-
-      var candidates = this._collectReactionCandidates(this._reactions, this._observers);
-      this._executeReactions(candidates);
     }
   }, {
     key: 'try_copy',
@@ -950,11 +718,11 @@ var Vat = (function (_EventEmitter) {
   }, {
     key: 'try_copy_all',
     value: function try_copy_all(pattern) {
-      var _this7 = this;
+      var _this4 = this;
 
       var matches = gu.toArray(this._getMatches(pattern));
       return matches.map(function (arr) {
-        return _this7._store.get(arr[0]).value;
+        return _this4._store.get(arr[0]).value;
       });
     }
   }, {
@@ -979,13 +747,13 @@ var Vat = (function (_EventEmitter) {
   }, {
     key: 'try_take_all',
     value: function try_take_all(pattern, deep) {
-      var _this8 = this;
+      var _this5 = this;
 
       var matches;
       if (deep) {
         matches = gu.toArray(this._getDeepMatches(pattern));
         var result = matches.map(function (m) {
-          return [_this8._store.get(m.index), m.path];
+          return [_this5._store.get(m.index), m.path];
         });
         this._removeAll(matches.map(function (m) {
           return m.index;
@@ -997,50 +765,6 @@ var Vat = (function (_EventEmitter) {
           return arr[0];
         }));
       }
-    }
-
-    // A reaction is a process that attempts to `take` a given pattern every
-    // time the tuple space changes. If the `reaction` function produces a result,
-    // the result is put into the tuple space.
-  }, {
-    key: 'addReaction',
-    value: function addReaction(pattOrConfig, optReactionFn) {
-      var pattern, patterns, callback, comparator;
-      if (!optReactionFn && typeof pattOrConfig === 'object') {
-        // jshint ignore: line
-        pattern = pattOrConfig.pattern;
-        patterns = pattOrConfig.patterns;
-        callback = pattOrConfig.callback;
-        comparator = pattOrConfig.comparator;
-        if (pattern && patterns) {
-          throw new Error('Use either `pattern` or `patterns`, but not both');
-        }
-      } else {
-        pattern = pattOrConfig;
-        callback = optReactionFn;
-      }
-
-      var r;
-      if (typeof patterns === 'object') {
-        r = new MultiReaction({ patterns: patterns, callback: callback, comparator: comparator });
-      } else {
-        r = new Reaction({ pattern: pattern, callback: callback, comparator: comparator });
-      }
-      this._reactions.push(r);
-      this._checkForMatches();
-      return r;
-    }
-  }, {
-    key: 'addObserver',
-    value: function addObserver() /* patterns..., cb */{
-      if (arguments.length !== 2) {
-        throw new Error('MultiObservers not yet supported');
-      }
-      var cb = arguments[arguments.length - 1];
-      var o = new Observer({ pattern: arguments[0], callback: cb });
-      this._observers.push(o);
-      this._checkForMatches();
-      return o;
     }
   }, {
     key: 'update',
