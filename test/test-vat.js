@@ -39,6 +39,12 @@ test('basic put, try_copy, and try_take with tuples', function(t) {
   t.ok(t2 = vat.try_copy(tuple));
   t.ok(vat.try_take(tuple), 'result of try_copy can be re-used as a pattern');
 
+  t.end();
+});
+
+test('try_take_all', function(t) {
+  var vat = new Vat();
+
   t.deepEqual(vat.try_take_all(_), [], 'try_take_all');
   vat.put(1);
   t.deepEqual(vat.try_take_all(isNumber), [1], 'try_take_all, one match');
