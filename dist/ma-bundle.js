@@ -29,6 +29,8 @@ var _slicedToArray = (function () {
   };
 })();
 
+var _bind = Function.prototype.bind;
+
 var _createClass = (function () {
   function defineProperties(target, props) {
     for (var i = 0; i < props.length; i++) {
@@ -39,15 +41,15 @@ var _createClass = (function () {
   };
 })();
 
-var _get = function get(_x4, _x5, _x6) {
+var _get = function get(_x5, _x6, _x7) {
   var _again = true;_function: while (_again) {
-    var object = _x4,
-        property = _x5,
-        receiver = _x6;desc = parent = getter = undefined;_again = false;if (object === null) object = Function.prototype;var desc = Object.getOwnPropertyDescriptor(object, property);if (desc === undefined) {
+    var object = _x5,
+        property = _x6,
+        receiver = _x7;desc = parent = getter = undefined;_again = false;if (object === null) object = Function.prototype;var desc = Object.getOwnPropertyDescriptor(object, property);if (desc === undefined) {
       var parent = Object.getPrototypeOf(object);if (parent === null) {
         return undefined;
       } else {
-        _x4 = parent;_x5 = property;_x6 = receiver;_again = true;continue _function;
+        _x5 = parent;_x6 = property;_x7 = receiver;_again = true;continue _function;
       }
     } else if ('value' in desc) {
       return desc.value;
@@ -58,6 +60,14 @@ var _get = function get(_x4, _x5, _x6) {
     }
   }
 };
+
+function _toConsumableArray(arr) {
+  if (Array.isArray(arr)) {
+    for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) arr2[i] = arr[i];return arr2;
+  } else {
+    return Array.from(arr);
+  }
+}
 
 var marked0$0 = [matchDeep].map(regeneratorRuntime.mark);
 
@@ -85,7 +95,7 @@ var match = pm.match,
     Pattern = pm.Pattern;
 
 var StoreEntry = Immutable.Record({ value: null, key: -1 });
-//var combinations = Immutable.Set();
+var combinations = Immutable.Set();
 
 // Custom walker for walking immutable-js objects.
 var immutableWalker = walk(function (node) {
@@ -122,6 +132,22 @@ function all(p) {
   }
   this.pattern = p; // jshint ignore: line
 }
+
+function combine() {
+  for (var _len = arguments.length, patterns = Array(_len), _key = 0; _key < _len; _key++) {
+    patterns[_key] = arguments[_key];
+  }
+
+  if (!(this instanceof combine)) {
+    // jshint ignore: line
+    return new (_bind.apply(combine, [null].concat(patterns)))();
+  }
+  this.patterns = patterns; // jshint ignore: line
+}
+
+var identity = function identity(x) {
+  return x;
+};
 
 // Private helpers
 // ---------------
@@ -260,6 +286,7 @@ var Vat = (function (_EventEmitter) {
       this._nextKey = 0;
       this._waiting = [];
       this.comparator = null;
+      this._time = 0;
     }
 
     // Yields { key, bindings } for each match of `pattern` found in `store`.
@@ -521,18 +548,81 @@ var Vat = (function (_EventEmitter) {
       });
       this.step();
     }
+  }, {
+    key: '_tryWatch',
+    value: function _tryWatch(pattern, cb) {
+      var _this = this;
 
-    // Removes the element at `index` from the store, and returns its value.
+      if (pattern instanceof combine) {
+        var matchIters = pattern.patterns.map(function (p) {
+          return _this._getMatches(p);
+        });
+        var firstMatches = matchIters.map(function (it) {
+          return Immutable.Seq(it).first();
+        });
+
+        // Check that every pattern has exactly one match.
+        if (!matchIters.every(function (it) {
+          return it.next().done;
+        })) {
+          throw new Error('Ambiguous pattern combination');
+        }
+        if (Immutable.List(firstMatches).groupBy(function (m) {
+          return m.index;
+        }).size !== firstMatches.length) {
+          throw new Error('Overlapping patterns');
+        }
+
+        var combo = Immutable.fromJS(firstMatches.concat(cb));
+        if (!combinations.has(combo)) {
+          cb.apply(undefined, _toConsumableArray(firstMatches.map(function (m) {
+            return _this._store.get(m.index).value;
+          })));
+          combinations = combinations.add(combo);
+        }
+      }
+      var _iteratorNormalCompletion5 = true;
+      var _didIteratorError5 = false;
+      var _iteratorError5 = undefined;
+
+      try {
+        for (var _iterator5 = this._getMatches(pattern)[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
+          var m = _step5.value;
+
+          var entry = this._store.get(m.index);
+          var combo = Immutable.fromJS([entry, cb]);
+          if (!combinations.has(combo)) {
+            cb(entry.value);
+            combinations = combinations.add(combo);
+          }
+        }
+      } catch (err) {
+        _didIteratorError5 = true;
+        _iteratorError5 = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion5 && _iterator5['return']) {
+            _iterator5['return']();
+          }
+        } finally {
+          if (_didIteratorError5) {
+            throw _iteratorError5;
+          }
+        }
+      }
+    }
+
+    // Removes the element at `index` from the store, and returns its entry.
   }, {
     key: '_removeAt',
     value: function _removeAt(index) {
-      var _this = this;
+      var _this2 = this;
 
-      var result = this._store.get(index).value;
+      var entry = this._store.get(index);
       this._updateStore(function () {
-        return _this._store['delete'](index);
+        return _this2._store['delete'](index);
       });
-      return result;
+      return entry;
     }
 
     // Like `_removeAt`, but removes elements from every index given in `arr`,
@@ -541,24 +631,26 @@ var Vat = (function (_EventEmitter) {
   }, {
     key: '_removeAll',
     value: function _removeAll(arr) {
-      var _this2 = this;
+      var _this3 = this;
+
+      var cb = arguments.length <= 1 || arguments[1] === undefined ? identity : arguments[1];
 
       var result = arr.map(function (i) {
-        return _this2._store.get(i).value;
+        return _this3._store.get(i);
       });
       this._updateStore(function () {
-        var store = _this2._store;
+        var store = _this3._store;
         var indices = arr.slice().sort(function (a, b) {
           return b - a;
         });
         var prevIndex;
-        var _iteratorNormalCompletion5 = true;
-        var _didIteratorError5 = false;
-        var _iteratorError5 = undefined;
+        var _iteratorNormalCompletion6 = true;
+        var _didIteratorError6 = false;
+        var _iteratorError6 = undefined;
 
         try {
-          for (var _iterator5 = indices[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
-            var i = _step5.value;
+          for (var _iterator6 = indices[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
+            var i = _step6.value;
 
             if (i !== prevIndex) {
               store = store['delete'](i);
@@ -566,16 +658,16 @@ var Vat = (function (_EventEmitter) {
             prevIndex = i;
           }
         } catch (err) {
-          _didIteratorError5 = true;
-          _iteratorError5 = err;
+          _didIteratorError6 = true;
+          _iteratorError6 = err;
         } finally {
           try {
-            if (!_iteratorNormalCompletion5 && _iterator5['return']) {
-              _iterator5['return']();
+            if (!_iteratorNormalCompletion6 && _iterator6['return']) {
+              _iterator6['return']();
             }
           } finally {
-            if (_didIteratorError5) {
-              throw _iteratorError5;
+            if (_didIteratorError6) {
+              throw _iteratorError6;
             }
           }
         }
@@ -587,31 +679,42 @@ var Vat = (function (_EventEmitter) {
   }, {
     key: 'put',
     value: function put(value) {
-      var _this3 = this;
+      var _this4 = this;
 
       // Update the store.
       var storedObj = new StoreEntry({ value: Immutable.fromJS(value), key: this._nextKey++ });
       this._updateStore(function () {
-        return _this3._store.set(storedObj.key, storedObj);
+        return _this4._store.set(storedObj.key, storedObj);
       });
     }
   }, {
     key: 'step',
     value: function step() {
+      var _this5 = this;
+
       // A really naive version of deferred take/copy. This should
       // probably be written in a more efficient way.
-      var self = this;
-      this._waiting = this._waiting.filter(function (info) {
-        return !self._try(info.pattern, info.op, info.callback);
+      this._waiting = this._waiting.filter(function (_ref) {
+        var pattern = _ref.pattern;
+        var op = _ref.op;
+        var callback = _ref.callback;
+
+        if (op === 'watch') {
+          _this5._tryWatch(pattern, callback);
+          return true;
+        } else {
+          return !_this5._try(pattern, op, callback);
+        }
       });
+      this._time++;
     }
   }, {
     key: 'try_copy',
     value: function try_copy(pattern) {
-      var _this4 = this;
+      var _this6 = this;
 
       var result = Immutable.Seq(this._getMatches(pattern)).map(function (m) {
-        return _this4._store.get(m.index).value;
+        return _this6._store.get(m.index).value;
       });
       return pattern instanceof all ? result.toArray() : result.first();
     }
@@ -628,14 +731,14 @@ var Vat = (function (_EventEmitter) {
   }, {
     key: 'try_take',
     value: function try_take(pattern, deep) {
-      var _this5 = this;
+      var _this7 = this;
 
       var matches = Immutable.Seq(deep ? this._getDeepMatches(pattern) : this._getMatches(pattern));
       var toRemove = matches.map(function (m) {
         return m.index;
       });
       var values = matches.map(function (m) {
-        var val = _this5._store.get(m.index).value;
+        var val = _this7._store.get(m.index).value;
         return deep ? [val, m.path] : val;
       });
       var result;
@@ -666,6 +769,15 @@ var Vat = (function (_EventEmitter) {
         self.put(cb(match));
       });
     }
+  }, {
+    key: 'watch',
+    value: function watch(pattern, cb) {
+      this._waiting.push({
+        pattern: pattern,
+        op: 'watch',
+        callback: cb
+      });
+    }
 
     // Does what you'd expect.
   }, {
@@ -679,6 +791,7 @@ var Vat = (function (_EventEmitter) {
 })(EventEmitter);
 
 Vat.all = all;
+Vat.combine = combine;
 Vat.ABORT = {};
 
 // Exports

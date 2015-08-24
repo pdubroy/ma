@@ -16,6 +16,9 @@ function isNumber(x) {
   return Object.prototype.toString.call(x) === '[object Number]';
 }
 
+function odd(x) { return x % 2 === 1; }
+function even(x) { return x % 2 === 0; }
+
 // Tests
 // -----
 
@@ -45,12 +48,27 @@ test('basic put, try_copy, and try_take with tuples', function(t) {
 test('try_take_all', function(t) {
   var vat = new Vat();
 
-  t.deepEqual(vat.try_take_all(_), [], 'try_take_all');
+  t.deepEqual(vat.try_take_all(_), [], 'empty vat');
   vat.put(1);
-  t.deepEqual(vat.try_take_all(isNumber), [1], 'try_take_all, one match');
+  t.deepEqual(vat.try_take_all(isNumber), [1], 'one match');
   vat.put(2);
   vat.put(3);
-  t.deepEqual(vat.try_take_all(isNumber), [2, 3], 'try_take_all, two matches');
+  t.deepEqual(vat.try_take_all(isNumber), [2, 3], 'two matches');
+
+  t.end();
+});
+
+test('try_copy_all', function(t) {
+  var vat = new Vat();
+
+  t.deepEqual(vat.try_copy_all(_), [], 'empty vat');
+
+  vat.put(1);
+  t.deepEqual(vat.try_copy_all(_), [1], 'one match');
+  t.deepEqual(vat.try_copy_all(_), [1], 'the item remains in the vat');
+
+  vat.put(2);
+  t.deepEqual(vat.try_copy_all(_), [1, 2], 'two matches');
 
   t.end();
 });
@@ -218,6 +236,60 @@ test('comparator', function(t) {
 
   vat.comparator = compareValueDesc;
   t.equal(vat.try_copy(isNumber), 2, 'comparator for entire vat');
+
+  t.end();
+});
+
+test('simple watch', function(t) {
+  var vat = new Vat();
+  var values = [];
+  vat.watch(_, function(val) { values.push(val); });
+  vat.put(1);
+  vat.step();
+  t.deepEqual(values, [1], 'first for the first value');
+
+  vat.step();
+  t.deepEqual(values, [1], "doesn't fire again with same values");
+
+  vat.put(2);
+  vat.put(3);
+  vat.step();
+  t.deepEqual(values, [1, 2, 3], 'fires two more times');
+
+  vat.step();
+  t.deepEqual(values, [1, 2, 3], "doesn't fire again with same values");
+
+  vat.put(1);
+  vat.step();
+  t.deepEqual(values, [1, 2, 3, 1], 'fires again for new item with previously-seen value');
+
+  t.end();
+});
+
+test('watches with `combine`', function(t) {
+  var vat = new Vat();
+  var combine = Vat.combine;
+
+  var values = [];
+  vat.watch(combine(odd, even), function(x, y) {
+    values.push([x, y]);
+  });
+  vat.put(1);
+  vat.put(2);
+  vat.step();
+  t.deepEquals(values, [[1, 2]], 'two different values');
+
+  vat.put(3);
+  t.throws(function() { vat.step(); }, /Ambiguous/, 'ambiguous combination');
+  vat.try_take(3);  // Fix the vat. TODO: Shouldn't it be poisoned?
+
+  vat.watch(combine(odd, isNumber), function(x, y) {});
+  t.throws(function() { vat.step(); }, /Ambiguous/, 'also ambiguous');
+
+  vat = new Vat();
+  vat.put(1);
+  vat.watch(combine(isNumber, odd), function(x, y) {});
+  t.throws(function() { vat.step(); }, /Overlapping/, 'overlapping patterns');
 
   t.end();
 });
