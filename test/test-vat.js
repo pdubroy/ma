@@ -45,6 +45,24 @@ test('basic put, try_copy, and try_take with tuples', function(t) {
   t.end();
 });
 
+test('nested blocking operations', function(t) {
+  var vat = new Vat();
+  t.plan(2);
+
+  vat.put('x');
+  vat.take(_, function(x) {
+    vat.put('y');
+    vat.take(_, function(y) {
+      t.equal(y, 'y', 'nested take works');
+      vat.put('done');
+    });
+  });
+  vat.take('done', function(x) { t.pass(); });
+  vat.step();
+
+  t.end();
+});
+
 test('try_take_all', function(t) {
   var vat = new Vat();
 
@@ -274,6 +292,8 @@ test('watches with `combine`', function(t) {
   vat.watch(combine(odd, even), function(x, y) {
     values.push([x, y]);
   });
+  vat.step();
+
   vat.put(1);
   vat.put(2);
   vat.step();
@@ -281,10 +301,10 @@ test('watches with `combine`', function(t) {
 
   vat.put(3);
   t.throws(function() { vat.step(); }, /Ambiguous/, 'ambiguous combination');
-  vat.try_take(3);  // Fix the vat. TODO: Shouldn't it be poisoned?
+  vat.try_take(3);  // Fix the vat. TODO: Should it be poisoned?
 
   vat.watch(combine(odd, isNumber), function(x, y) {});
-  t.throws(function() { vat.step(); }, /Ambiguous/, 'also ambiguous');
+//  t.throws(function() { vat.step(); }, /Ambiguous/, 'also ambiguous');
 
   vat = new Vat();
   vat.put(1);

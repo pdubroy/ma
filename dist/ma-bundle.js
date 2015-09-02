@@ -284,7 +284,7 @@ var Vat = (function (_EventEmitter) {
     value: function _init() {
       this._store = Immutable.Map();
       this._nextKey = 0;
-      this._waiting = [];
+      this._waiting = Immutable.List();
       this.comparator = null;
       this._time = 0;
     }
@@ -541,12 +541,12 @@ var Vat = (function (_EventEmitter) {
   }, {
     key: '_tryOrWait',
     value: function _tryOrWait(pattern, op, cb) {
-      this._waiting.push({
+      this._waiting = this._waiting.push({
         pattern: pattern,
         op: op,
         callback: cb
       });
-      this.step();
+      //    this.step();
     }
   }, {
     key: '_tryWatch',
@@ -557,28 +557,32 @@ var Vat = (function (_EventEmitter) {
         var matchIters = pattern.patterns.map(function (p) {
           return _this._getMatches(p);
         });
-        var firstMatches = matchIters.map(function (it) {
+        var firstMatches = Immutable.List(matchIters.map(function (it) {
           return Immutable.Seq(it).first();
-        });
+        }));
 
-        // Check that every pattern has exactly one match.
+        // Check that every pattern has no more than one match.
         if (!matchIters.every(function (it) {
           return it.next().done;
         })) {
           throw new Error('Ambiguous pattern combination');
         }
-        if (Immutable.List(firstMatches).groupBy(function (m) {
-          return m.index;
-        }).size !== firstMatches.length) {
-          throw new Error('Overlapping patterns');
-        }
+        if (firstMatches.every(function (m) {
+          return m !== undefined;
+        })) {
+          if (firstMatches.groupBy(function (m) {
+            return m.index;
+          }).size !== firstMatches.size) {
+            throw new Error('Overlapping patterns');
+          }
 
-        var combo = Immutable.fromJS(firstMatches.concat(cb));
-        if (!combinations.has(combo)) {
-          cb.apply(undefined, _toConsumableArray(firstMatches.map(function (m) {
-            return _this._store.get(m.index).value;
-          })));
-          combinations = combinations.add(combo);
+          var combo = Immutable.fromJS(firstMatches.concat(cb));
+          if (!combinations.has(combo)) {
+            cb.apply(undefined, _toConsumableArray(firstMatches.map(function (m) {
+              return _this._store.get(m.index).value;
+            })));
+            combinations = combinations.add(combo);
+          }
         }
       }
       var _iteratorNormalCompletion5 = true;
@@ -690,31 +694,69 @@ var Vat = (function (_EventEmitter) {
   }, {
     key: 'step',
     value: function step() {
-      var _this5 = this;
+      if (this._stepping) {
+        return;
+      }
+      this._stepping = true;
 
-      // A really naive version of deferred take/copy. This should
-      // probably be written in a more efficient way.
-      this._waiting = this._waiting.filter(function (_ref) {
-        var pattern = _ref.pattern;
-        var op = _ref.op;
-        var callback = _ref.callback;
+      var done = false;
+      while (!done) {
+        var prevStore = this._store;
+        var prevWaiting = this._waiting;
+        this._waiting = Immutable.List();
+        var waiting = [];
+        var _iteratorNormalCompletion7 = true;
+        var _didIteratorError7 = false;
+        var _iteratorError7 = undefined;
 
-        if (op === 'watch') {
-          _this5._tryWatch(pattern, callback);
-          return true;
-        } else {
-          return !_this5._try(pattern, op, callback);
+        try {
+          for (var _iterator7 = prevWaiting[Symbol.iterator](), _step7; !(_iteratorNormalCompletion7 = (_step7 = _iterator7.next()).done); _iteratorNormalCompletion7 = true) {
+            var entry = _step7.value;
+            var pattern = entry.pattern;
+            var op = entry.op;
+            var callback = entry.callback;
+
+            if (op === 'watch') {
+              this._tryWatch(pattern, callback);
+              waiting.push(entry);
+            } else if (!this._try(pattern, op, callback)) {
+              waiting.push(entry);
+            }
+          }
+        } catch (err) {
+          _didIteratorError7 = true;
+          _iteratorError7 = err;
+        } finally {
+          try {
+            if (!_iteratorNormalCompletion7 && _iterator7['return']) {
+              _iterator7['return']();
+            }
+          } finally {
+            if (_didIteratorError7) {
+              throw _iteratorError7;
+            }
+          }
         }
-      });
-      this._time++;
+
+        this._time++;
+
+        // The store is quiescent when no new items have been added, and no new
+        // processes are waiting.
+        if (Immutable.is(this._store, prevStore) && this._waiting.size === 0) {
+          done = true;
+        }
+        this._waiting = Immutable.List(waiting).concat(this._waiting);
+      }
+      this.emit('step');
+      this._stepping = false;
     }
   }, {
     key: 'try_copy',
     value: function try_copy(pattern) {
-      var _this6 = this;
+      var _this5 = this;
 
       var result = Immutable.Seq(this._getMatches(pattern)).map(function (m) {
-        return _this6._store.get(m.index).value;
+        return _this5._store.get(m.index).value;
       });
       return pattern instanceof all ? result.toArray() : result.first();
     }
@@ -731,14 +773,14 @@ var Vat = (function (_EventEmitter) {
   }, {
     key: 'try_take',
     value: function try_take(pattern, deep) {
-      var _this7 = this;
+      var _this6 = this;
 
       var matches = Immutable.Seq(deep ? this._getDeepMatches(pattern) : this._getMatches(pattern));
       var toRemove = matches.map(function (m) {
         return m.index;
       });
       var values = matches.map(function (m) {
-        var val = _this7._store.get(m.index).value;
+        var val = _this6._store.get(m.index).value;
         return deep ? [val, m.path] : val;
       });
       var result;
@@ -768,11 +810,12 @@ var Vat = (function (_EventEmitter) {
       this.take(pattern, function (match) {
         self.put(cb(match));
       });
+      this.step();
     }
   }, {
     key: 'watch',
     value: function watch(pattern, cb) {
-      this._waiting.push({
+      this._waiting = this._waiting.push({
         pattern: pattern,
         op: 'watch',
         callback: cb
