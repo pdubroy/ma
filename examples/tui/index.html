@@ -61,7 +61,8 @@
     <script src="../../dist/ma-bundle.js"></script>
     <script type="text/jsx;harmony=true">
       var _ = ma.match.ANY;
-      var ALL = ma.match.ALL;
+      var all = ma.Vat.all;
+      var combine = ma.Vat.combine;
       var DragDropContext = ReactDnD.DragDropContext;
       var DragSource = ReactDnD.DragSource;
       var DropTarget = ReactDnD.DropTarget;
@@ -120,13 +121,26 @@
           var value = this.props.value;
           return connectDragSource(
             <div style={{top: value.get('offsetTop'), left: value.get('offsetLeft')}}
-                 className={className}>
+                 className={className}
+                 onClick={this.handleClick.bind(this)}>
               {this.getLabel()}
             </div>
           );
         }
+        componentDidMount() {
+          /*
+          var el = React.findDOMNode(this);
+          vat.update(this.props.value,  function(item) {
+            return item.set('offsetWidth', el.offsetWidth)
+                       .set('offsetHeight', el.offsetHeight);
+          });
+*/
+        }
         getLabel() {
           return this.props.value.get('name');
+        }
+        handleClick() {
+          console.log(this.props.value.toJS());
         }
       }
 
@@ -141,7 +155,6 @@
         },
         drop: function (props, monitor) {
           var delta = monitor.getDifferenceFromInitialOffset();
-          console.log(monitor.getItem().toJS());
           vat.update(monitor.getItem(), function(item) {
             return item.set('offsetLeft', item.get('offsetLeft') + delta.x)
                        .set('offsetTop', item.get('offsetTop') + delta.y);
@@ -163,7 +176,7 @@
           this.state = {inputValue: ''};
         }
         render() {
-          var items = this.props.vat.try_copy_all(_);
+          var items = this.props.vat.try_copy_all({name: ma.match.ANY});
           return this.props.connectDropTarget(
               <div>
                 <input type="text"
@@ -172,13 +185,16 @@
                     onChange={this.handleChange.bind(this)}
                     onKeyUp={this.handleKeyUp.bind(this)}></input>
                 <div className="vat">{
-                  items.map((x) => <Card value={x} />)
+                  items.map((x) => <Card key={x.get('id')} value={x} />)
                 }</div>
               </div>
           );
         }
         componentDidMount() {
           React.findDOMNode(this.refs.nameInput).focus();
+        }
+        componentWillReceiveProps(nextProps) {
+          vat.step();
         }
         handleKeyUp(e) {
           if (e.keyCode === 13) {
@@ -215,8 +231,8 @@
       function objWithoutId(obj) {
         return Immutable.Map.isMap(obj) && !obj.has('id');
       }
-      vat.addReaction(objWithoutId, function(obj, _) {
-        return obj.set('id', id++);
+      vat.watch(objWithoutId, function(match) {
+        vat.update(match, function(obj) { return obj.set('id', id++); });
       });
       // ------
 
@@ -225,28 +241,87 @@
       function objWithoutOffsets(obj) {
         return Immutable.Map.isMap(obj) && !obj.has('offsetTop') && obj.has('id');
       }
-      vat.addReaction(objWithoutOffsets, function(obj, _) {
+      vat.watch(objWithoutOffsets, function(match) {
         var top = Math.abs(rand(100, 0));
         var left = Math.abs(rand(100, 0));
-        return obj.set('offsetTop', top).set('offsetLeft', left);
+        vat.update(match, function(obj) { return obj.set('offsetTop', top).set('offsetLeft', left); });
       });
       // ------
 
       function isNumberTile(x) {
-        return Immutable.Map.isMap(x) && x.has('numValue') && x.has('id');
+        return Immutable.Map.isMap(x) &&
+               !Number.isNaN(parseInt(x.get('name'), 10)) &&
+               x.has('id') &&
+               x.has('offsetTop');
       }
 
-      function sortById(a, b) {
-        return a.id - b.id;
+      function dist(a, b) {
+        var aPos = {
+          x: a.get('offsetLeft') + a.get('offsetWidth') / 2,
+          y: a.get('offsetTop') + a.get('offsetHeight') / 2
+        };
+        var bPos = {
+          x: b.get('offsetLeft') + b.get('offsetWidth') / 2,
+          y: b.get('offsetTop') + b.get('offsetHeight') / 2
+        };
+        var result = Math.sqrt(
+          Math.pow(aPos.x - bPos.x, 2) +
+          Math.pow(aPos.y - bPos.y, 2));
+        return result;
       }
+
+/*
+      vat.watch(
+        combine(all({id: _, name: '+', x: null, y: _, offsetTop: _}), all(isNumberTile)),
+        function(plusTiles, numberTiles) {
+          console.log('trying to link');
+        }
+      );
+*/
+/*
+      function tryLink(plusItem, numbers) {
+        numbers = numbers.filter(function(x) {
+          return dist(plusItem, x) < 65;
+        }).sort(function(a, b) {
+          return dist(plusItem, a) - dist(plusItem, b);
+        });
+        if (numbers.length > 0) {
+          vat.update(plusItem, function(item) {
+            return item.set('left', numbers[0].get('id'));
+          });
+        }
+      }
+
+      var plusPattern = {id: _, name: '+', x: null, y: _, offsetTop: _};
+
+      vat.addObserver(plusPattern, function(obj, id, y, _) {
+        tryLink(obj, vat.try_copy_all(isNumberTile));
+      });
+
+      vat.addObserver(isNumberTile, function(tup, _) {
+        var numbers = vat.try_copy_all(isNumberTile);
+        vat.try_copy_all(plusPattern).forEach(function(x, y) {
+          tryLink(x, numbers);
+        });
+      });
 
       // Bind the left if unbound.
       vat.addReaction({
-        patterns: [{id: _, name: '+', x: null, y: _}, ALL(isNumberTile)],
-        callback: function(tup, id, r, numbers) {
-          numbers = numbers.sort(sortById).filter(function(x) {
-            return x.get('id') < id;
+        patterns: [{id: _, name: '+', x: null, y: _, offsetTop: _}, ALL(isNumberTile)],
+        callback: function(tup, plusItems, numbers, a, b) {
+          /*
+          numbers = numbers.filter(function(x) {
+            return dist(plusItem, x) < 50;
           });
+
+          // Sumpin' weird is going on here....
+          /*
+          .sort(function(a, b) {
+            return dist(plusItem, a) - dist(plusItem, b);
+          });
+
+          console.log(numbers.map(function(x) { return x.toJS(); }));
+
           if (numbers.length === 0) {
             return ma.Vat.ABORT;
           }
@@ -254,16 +329,15 @@
 
           var tileObj = tup[0];
           return tileObj.set('x', num);
+          return ma.Vat.ABORT;
         }
       });
-
       // Bind the right if unbound.
-      /*
       vat.addReaction({
         patterns: [{id: _, op: '+', left: _, right: null}, ALL(isNumberTile)],
         callback: function(tup, id, l, numbers) {
           return null;
-//          return [x, '+', y];
+          return [x, '+', y];
         }
       });
 */
@@ -275,6 +349,7 @@
 
         vat.put({name: '+', x: null, y: null});
 //        assert(vat.size() === 2);
+//        vat.step();
       }
       test();
 
@@ -282,6 +357,7 @@
       vat.on('change', function() {
         React.render(<DraggableVatView vat={vat} />, container);
       });
+      vat.step();
       React.render(<DraggableVatView vat={vat} />, container);
 
       // TODO:
