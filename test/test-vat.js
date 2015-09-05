@@ -63,6 +63,18 @@ test('nested blocking operations', function(t) {
   t.end();
 });
 
+test('update', function(t) {
+  var vat = new Vat();
+  vat.update(isNumber, function(num) {
+    return num + 1;
+  });
+  vat.put(1);
+  vat.step();
+  t.ok(vat.try_take(2));
+
+  t.end();
+});
+
 test('try_take_all', function(t) {
   var vat = new Vat();
 
