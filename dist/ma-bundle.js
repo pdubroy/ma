@@ -133,14 +133,14 @@ function all(p) {
   this.pattern = p; // jshint ignore: line
 }
 
-function combine() {
+function and() {
   for (var _len = arguments.length, patterns = Array(_len), _key = 0; _key < _len; _key++) {
     patterns[_key] = arguments[_key];
   }
 
-  if (!(this instanceof combine)) {
+  if (!(this instanceof and)) {
     // jshint ignore: line
-    return new (_bind.apply(combine, [null].concat(patterns)))();
+    return new (_bind.apply(and, [null].concat(patterns)))();
   }
   this.patterns = patterns; // jshint ignore: line
 }
@@ -148,6 +148,10 @@ function combine() {
 var identity = function identity(x) {
   return x;
 };
+
+function isUndefined(x) {
+  return x === undefined;
+}
 
 // Private helpers
 // ---------------
@@ -529,6 +533,11 @@ var Vat = (function (_EventEmitter) {
       }
     }
   }, {
+    key: '_entryValue',
+    value: function _entryValue(entry) {
+      return this._store.get(entry.index).value;
+    }
+  }, {
     key: '_try',
     value: function _try(pattern, op, cb) {
       var result = this['try_' + op].call(this, pattern);
@@ -553,34 +562,34 @@ var Vat = (function (_EventEmitter) {
     value: function _tryWatch(pattern, cb) {
       var _this = this;
 
-      if (pattern instanceof combine) {
-        var matchIters = pattern.patterns.map(function (p) {
+      if (pattern instanceof and) {
+        var patterns = pattern.patterns;
+        var matchIters = patterns.map(function (p) {
           return _this._getMatches(p);
         });
-        var firstMatches = Immutable.List(matchIters.map(function (it) {
-          return Immutable.Seq(it).first();
+        var firstMatches = Immutable.List(matchIters.map(function (it, i) {
+          var seq = Immutable.Seq(it);
+          if (patterns[i] instanceof all) {
+            return seq.toArray();
+          }
+          // Ensure that no pattern has more than one match.
+          if (seq.count() > 1) {
+            throw new Error('Ambiguous pattern combination');
+          }
+          return seq.first();
         }));
 
-        // Check that every pattern has no more than one match.
-        if (!matchIters.every(function (it) {
-          return it.next().done;
-        })) {
-          throw new Error('Ambiguous pattern combination');
-        }
-        if (firstMatches.every(function (m) {
-          return m !== undefined;
-        })) {
-          if (firstMatches.groupBy(function (m) {
-            return m.index;
-          }).size !== firstMatches.size) {
-            throw new Error('Overlapping patterns');
-          }
+        if (!firstMatches.some(isUndefined)) {
+          // TODO: Ensure that the matches do not overlap.
 
+          // Run the callback only if it has not seen this combination of arguments before.
           var combo = Immutable.fromJS(firstMatches.concat(cb));
           if (!combinations.has(combo)) {
-            cb.apply(undefined, _toConsumableArray(firstMatches.map(function (m) {
-              return _this._store.get(m.index).value;
-            })));
+            var args = firstMatches.map(function (x) {
+              // Expand any `all` matches.
+              return Array.isArray(x) ? x.map(_this._entryValue, _this) : _this._entryValue(x);
+            });
+            cb.apply(undefined, _toConsumableArray(args));
             combinations = combinations.add(combo);
           }
         }
@@ -815,7 +824,7 @@ var Vat = (function (_EventEmitter) {
 })(EventEmitter);
 
 Vat.all = all;
-Vat.combine = combine;
+Vat.and = and;
 Vat.ABORT = {};
 
 // Exports
