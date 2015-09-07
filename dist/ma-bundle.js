@@ -616,34 +616,17 @@ var Vat = (function (_EventEmitter) {
       }
     }
 
-    // Removes the element at `index` from the store, and returns its entry.
-  }, {
-    key: '_removeAt',
-    value: function _removeAt(index) {
-      var _this2 = this;
-
-      var entry = this._store.get(index);
-      this._updateStore(function () {
-        return _this2._store['delete'](index);
-      });
-      return entry;
-    }
-
-    // Like `_removeAt`, but removes elements from every index given in `arr`,
-    // and returns an Array of values. The indices in `arr` can be in any order
+    // Removes elements from every index given in `arr`, which can be in any order
     // and may contain duplicates.
   }, {
     key: '_removeAll',
     value: function _removeAll(arr) {
-      var _this3 = this;
+      var _this2 = this;
 
       var cb = arguments.length <= 1 || arguments[1] === undefined ? identity : arguments[1];
 
-      var result = arr.map(function (i) {
-        return _this3._store.get(i);
-      });
       this._updateStore(function () {
-        var store = _this3._store;
+        var store = _this2._store;
         var indices = arr.slice().sort(function (a, b) {
           return b - a;
         });
@@ -678,17 +661,16 @@ var Vat = (function (_EventEmitter) {
 
         return store;
       });
-      return result;
     }
   }, {
     key: 'put',
     value: function put(value) {
-      var _this4 = this;
+      var _this3 = this;
 
       // Update the store.
       var storedObj = new StoreEntry({ value: Immutable.fromJS(value), key: this._nextKey++ });
       this._updateStore(function () {
-        return _this4._store.set(storedObj.key, storedObj);
+        return _this3._store.set(storedObj.key, storedObj);
       });
     }
   }, {
@@ -753,12 +735,7 @@ var Vat = (function (_EventEmitter) {
   }, {
     key: 'try_copy',
     value: function try_copy(pattern) {
-      var _this5 = this;
-
-      var result = Immutable.Seq(this._getMatches(pattern)).map(function (m) {
-        return _this5._store.get(m.index).value;
-      });
-      return pattern instanceof all ? result.toArray() : result.first();
+      return this._doMatch(pattern, false, false);
     }
   }, {
     key: 'copy',
@@ -771,27 +748,31 @@ var Vat = (function (_EventEmitter) {
       return this.try_copy(all(pattern));
     }
   }, {
-    key: 'try_take',
-    value: function try_take(pattern, deep) {
-      var _this6 = this;
+    key: '_doMatch',
+    value: function _doMatch(pattern, deep, removeFromStore) {
+      var _this4 = this;
 
       var matches = Immutable.Seq(deep ? this._getDeepMatches(pattern) : this._getMatches(pattern));
+      if (!(pattern instanceof all)) {
+        matches = matches.take(1);
+      }
       var toRemove = matches.map(function (m) {
         return m.index;
       });
       var values = matches.map(function (m) {
-        var val = _this6._store.get(m.index).value;
+        var val = _this4._store.get(m.index).value;
         return deep ? [val, m.path] : val;
       });
-      var result;
-      if (pattern instanceof all) {
-        result = values.toArray();
+      var result = pattern instanceof all ? values.toArray() : values.first();
+      if (removeFromStore) {
         this._removeAll(toRemove.toArray());
-      } else if (values.first() !== undefined) {
-        result = values.first();
-        this._removeAt(toRemove.first());
       }
       return result;
+    }
+  }, {
+    key: 'try_take',
+    value: function try_take(pattern, deep) {
+      return this._doMatch(pattern, deep, true);
     }
   }, {
     key: 'take',
