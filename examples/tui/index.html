@@ -62,7 +62,7 @@
     <script type="text/jsx;harmony=true">
       var _ = ma.match.ANY;
       var all = ma.Vat.all;
-      var combine = ma.Vat.combine;
+      var and = ma.Vat.and;
       var DragDropContext = ReactDnD.DragDropContext;
       var DragSource = ReactDnD.DragSource;
       var DropTarget = ReactDnD.DropTarget;
@@ -127,15 +127,6 @@
             </div>
           );
         }
-        componentDidMount() {
-          /*
-          var el = React.findDOMNode(this);
-          vat.update(this.props.value,  function(item) {
-            return item.set('offsetWidth', el.offsetWidth)
-                       .set('offsetHeight', el.offsetHeight);
-          });
-*/
-        }
         getLabel() {
           return this.props.value.get('name');
         }
@@ -185,13 +176,14 @@
                     onChange={this.handleChange.bind(this)}
                     onKeyUp={this.handleKeyUp.bind(this)}></input>
                 <div className="vat">{
-                  items.map((x) => <Card key={x.get('id')} value={x} />)
+                  items.map((x) => <Card ref={'item-' + x.get('id')} value={x} />)
                 }</div>
               </div>
           );
         }
         componentDidMount() {
           React.findDOMNode(this.refs.nameInput).focus();
+          viewComponent = this;
         }
         componentWillReceiveProps(nextProps) {
           vat.step();
@@ -256,42 +248,48 @@
       }
 
       function dist(a, b) {
-        var aPos = {
-          x: a.get('offsetLeft') + a.get('offsetWidth') / 2,
-          y: a.get('offsetTop') + a.get('offsetHeight') / 2
+        var pos1 = {
+          x: a.offsetLeft + a.offsetWidth / 2,
+          y: a.offsetTop + a.offsetHeight / 2
         };
-        var bPos = {
-          x: b.get('offsetLeft') + b.get('offsetWidth') / 2,
-          y: b.get('offsetTop') + b.get('offsetHeight') / 2
+        var pos2 = {
+          x: b.offsetLeft + b.offsetWidth / 2,
+          y: b.offsetTop + b.offsetHeight / 2
         };
-        var result = Math.sqrt(
-          Math.pow(aPos.x - bPos.x, 2) +
-          Math.pow(aPos.y - bPos.y, 2));
-        return result;
+        return Math.sqrt(
+          Math.pow(pos1.x - pos2.x, 2) +
+          Math.pow(pos1.y - pos2.y, 2));
       }
 
-/*
+      function nodeForTile(t) {
+        return React.findDOMNode(viewComponent.refs['item-' + t.get('id')]);
+      }
+
+      // ------
+      // An agent which tries to bind number tiles and '+' tiles.
       vat.watch(
-        combine(all({id: _, name: '+', x: null, y: _, offsetTop: _}), all(isNumberTile)),
+        and(all({id: _, name: '+', x: null, y: _, offsetTop: _}),
+            all(isNumberTile)),
         function(plusTiles, numberTiles) {
-          console.log('trying to link');
+          if (viewComponent) {
+            plusTiles.forEach(t => tryLink(t, numberTiles));
+          }
         }
       );
-*/
-/*
-      function tryLink(plusItem, numbers) {
-        numbers = numbers.filter(function(x) {
-          return dist(plusItem, x) < 65;
-        }).sort(function(a, b) {
-          return dist(plusItem, a) - dist(plusItem, b);
+      // ------
+
+      function tryLink(plusItem, numberTiles) {
+        var plusNode = nodeForTile(plusItem);
+        numberTiles.forEach(n => {
+          var numberNode = nodeForTile(n);
+          var delta = dist(plusNode, numberNode);
+          if (delta < 1.3 * plusNode.offsetWidth) {
+            console.log('link', n.toJS(), 'with', plusItem.toJS());
+          }
         });
-        if (numbers.length > 0) {
-          vat.update(plusItem, function(item) {
-            return item.set('left', numbers[0].get('id'));
-          });
-        }
       }
 
+/*
       var plusPattern = {id: _, name: '+', x: null, y: _, offsetTop: _};
 
       vat.addObserver(plusPattern, function(obj, id, y, _) {
@@ -353,12 +351,11 @@
       }
       test();
 
-      var container = document.getElementById('container');
+      var viewComponent;
       vat.on('change', function() {
-        React.render(<DraggableVatView vat={vat} />, container);
+        React.render(<DraggableVatView vat={vat} />, document.getElementById('container'));
       });
       vat.step();
-      React.render(<DraggableVatView vat={vat} />, container);
 
       // TODO:
       // - Need to be able to observe deletions somehow.
