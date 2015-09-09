@@ -567,7 +567,7 @@ var Vat = (function (_EventEmitter) {
         var matchIters = patterns.map(function (p) {
           return _this._getMatches(p);
         });
-        var firstMatches = Immutable.List(matchIters.map(function (it, i) {
+        var firstMatches = matchIters.map(function (it, i) {
           var seq = Immutable.Seq(it);
           if (patterns[i] instanceof all) {
             return seq.toArray();
@@ -577,7 +577,7 @@ var Vat = (function (_EventEmitter) {
             throw new Error('Ambiguous pattern combination');
           }
           return seq.first();
-        }));
+        });
 
         if (!firstMatches.some(isUndefined)) {
           // TODO: Ensure that the matches do not overlap.
@@ -591,38 +591,41 @@ var Vat = (function (_EventEmitter) {
             });
             cb.apply(undefined, _toConsumableArray(args));
             combinations = combinations.add(combo);
+            return true;
           }
         }
-      }
-      var _iteratorNormalCompletion5 = true;
-      var _didIteratorError5 = false;
-      var _iteratorError5 = undefined;
+      } else {
+        var _iteratorNormalCompletion5 = true;
+        var _didIteratorError5 = false;
+        var _iteratorError5 = undefined;
 
-      try {
-        for (var _iterator5 = this._getMatches(pattern)[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
-          var m = _step5.value;
-
-          var entry = this._store.get(m.index);
-          var combo = Immutable.fromJS([entry, cb]);
-          if (!combinations.has(combo)) {
-            cb(entry.value);
-            combinations = combinations.add(combo);
-          }
-        }
-      } catch (err) {
-        _didIteratorError5 = true;
-        _iteratorError5 = err;
-      } finally {
         try {
-          if (!_iteratorNormalCompletion5 && _iterator5['return']) {
-            _iterator5['return']();
+          for (var _iterator5 = this._getMatches(pattern)[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
+            var m = _step5.value;
+
+            var combo = Immutable.fromJS([m, cb]);
+            if (!combinations.has(combo)) {
+              cb(this._entryValue(m));
+              combinations = combinations.add(combo);
+              return true;
+            }
           }
+        } catch (err) {
+          _didIteratorError5 = true;
+          _iteratorError5 = err;
         } finally {
-          if (_didIteratorError5) {
-            throw _iteratorError5;
+          try {
+            if (!_iteratorNormalCompletion5 && _iterator5['return']) {
+              _iterator5['return']();
+            }
+          } finally {
+            if (_didIteratorError5) {
+              throw _iteratorError5;
+            }
           }
         }
       }
+      return false;
     }
 
     // Removes elements from every index given in `arr`, which can be in any order
@@ -696,6 +699,7 @@ var Vat = (function (_EventEmitter) {
         var prevWaiting = this._waiting;
         this._waiting = Immutable.List();
         var waiting = [];
+        var agentsActive = false;
         var _iteratorNormalCompletion7 = true;
         var _didIteratorError7 = false;
         var _iteratorError7 = undefined;
@@ -708,7 +712,9 @@ var Vat = (function (_EventEmitter) {
             var callback = entry.callback;
 
             if (op === 'watch') {
-              this._tryWatch(pattern, callback);
+              if (this._tryWatch(pattern, callback)) {
+                agentsActive = true;
+              }
               waiting.push(entry);
             } else if (!this._try(pattern, op, callback)) {
               waiting.push(entry);
@@ -733,7 +739,7 @@ var Vat = (function (_EventEmitter) {
 
         // The store is quiescent when no new items have been added, and no new
         // processes are waiting.
-        if (Immutable.is(this._store, prevStore) && this._waiting.size === 0) {
+        if (!agentsActive && Immutable.is(this._store, prevStore) && this._waiting.size === 0) {
           done = true;
         }
         this._waiting = Immutable.List(waiting).concat(this._waiting);
