@@ -307,68 +307,6 @@
         });
       }
 
-/*
-      var plusPattern = {id: _, name: '+', x: null, y: _, offsetTop: _};
-
-      vat.addObserver(plusPattern, function(obj, id, y, _) {
-        tryLink(obj, vat.try_copy_all(isNumberTile));
-      });
-
-      vat.addObserver(isNumberTile, function(tup, _) {
-        var numbers = vat.try_copy_all(isNumberTile);
-        vat.try_copy_all(plusPattern).forEach(function(x, y) {
-          tryLink(x, numbers);
-        });
-      });
-
-      // Bind the left if unbound.
-      vat.addReaction({
-        patterns: [{id: _, name: '+', x: null, y: _, offsetTop: _}, ALL(isNumberTile)],
-        callback: function(tup, plusItems, numbers, a, b) {
-          /*
-          numbers = numbers.filter(function(x) {
-            return dist(plusItem, x) < 50;
-          });
-
-          // Sumpin' weird is going on here....
-          /*
-          .sort(function(a, b) {
-            return dist(plusItem, a) - dist(plusItem, b);
-          });
-
-          console.log(numbers.map(function(x) { return x.toJS(); }));
-
-          if (numbers.length === 0) {
-            return ma.Vat.ABORT;
-          }
-          var num = numbers.pop();
-
-          var tileObj = tup[0];
-          return tileObj.set('x', num);
-          return ma.Vat.ABORT;
-        }
-      });
-      // Bind the right if unbound.
-      vat.addReaction({
-        patterns: [{id: _, op: '+', left: _, right: null}, ALL(isNumberTile)],
-        callback: function(tup, id, l, numbers) {
-          return null;
-          return [x, '+', y];
-        }
-      });
-*/
-
-      function test() {
-        vat.put({name: '+', x: null, y: null});
-        vat.put({name: '3'});
-//        assert(vat.size() === 2);
-
-        vat.put({name: '+', x: null, y: null});
-//        assert(vat.size() === 2);
-//        vat.step();
-      }
-      test();
-
       vat.on('step', function() {
         React.render(<DraggableVatView vat={vat} />, document.getElementById('container'));
       });
