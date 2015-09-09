@@ -25,6 +25,24 @@
       .vat {
         flex: 1;
       }
+      .link {
+        background-color: #dfdfdf;
+        border-radius: 3px;
+        display: inline-block;
+        height: 6px;
+        margin-left: -3px;
+        margin-right: -3px;
+        position: relative;
+        top: -4px;
+        width: 6px;
+        z-index: 0;
+      }
+      .link.linked {
+        background-color: CornflowerBlue;
+      }
+      .item-container {
+        position: absolute;
+      }
       .item {
         background-color: white;
         border: 1px solid transparent;
@@ -32,11 +50,10 @@
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
         display: inline-block;
         font-size: 24px;
-        margin: 4px;
         padding: 8px 24px;
-        position: absolute;
+        z-index: 1;
       }
-      .item.dragging {
+      .dragging {
         color: white;
         box-shadow: none;
         opacity: 0.2;
@@ -114,18 +131,29 @@
       class VatItem extends React.Component {
         render() {
           var connectDragSource = this.props.connectDragSource;
-          var className = 'item';
+          var className = 'item-container';
           if (this.props.isDragging) {
             className += ' dragging';
           }
           var value = this.props.value;
           return connectDragSource(
-            <div style={{top: value.get('offsetTop'), left: value.get('offsetLeft')}}
-                 className={className}
-                 onClick={this.handleClick.bind(this)}>
-              {this.getLabel()}
+            <div className={className}
+                 style={{top: value.get('offsetTop'), left: value.get('offsetLeft')}}>
+              <div className={value.get('x') != null ? "link linked" : "link"}></div>
+              <div className="item" onClick={this.handleClick.bind(this)}>
+                {this.getLabel()}
+              </div>
+              <div className={value.get('y') != null ? "link linked" : "link"}></div>
             </div>
           );
+        }
+        componentDidMount() {
+          // Update the model item with the height and width of the DOM node.
+          var node = React.findDOMNode(this);
+          vat.update(this.props.value, function(item) {
+            return item.set('offsetWidth', node.offsetWidth)
+                       .set('offsetHeight', node.offsetHeight);
+          });
         }
         getLabel() {
           return this.props.value.get('name');
@@ -141,10 +169,10 @@
       // -------
 
       var viewTarget = {
-        canDrop: function (props) {
+        canDrop(props) {
           return true;
         },
-        drop: function (props, monitor) {
+        drop(props, monitor) {
           var delta = monitor.getDifferenceFromInitialOffset();
           vat.update(monitor.getItem(), function(item) {
             return item.set('offsetLeft', item.get('offsetLeft') + delta.x)
@@ -183,10 +211,6 @@
         }
         componentDidMount() {
           React.findDOMNode(this.refs.nameInput).focus();
-          viewComponent = this;
-        }
-        componentWillReceiveProps(nextProps) {
-          vat.step();
         }
         handleKeyUp(e) {
           if (e.keyCode === 13) {
@@ -249,20 +273,16 @@
 
       function dist(a, b) {
         var pos1 = {
-          x: a.offsetLeft + a.offsetWidth / 2,
-          y: a.offsetTop + a.offsetHeight / 2
+          x: a.get('offsetLeft') + a.get('offsetWidth') / 2,
+          y: a.get('offsetTop') + a.get('offsetHeight') / 2
         };
         var pos2 = {
-          x: b.offsetLeft + b.offsetWidth / 2,
-          y: b.offsetTop + b.offsetHeight / 2
+          x: b.get('offsetLeft') + b.get('offsetWidth') / 2,
+          y: b.get('offsetTop') + b.get('offsetHeight') / 2
         };
         return Math.sqrt(
           Math.pow(pos1.x - pos2.x, 2) +
           Math.pow(pos1.y - pos2.y, 2));
-      }
-
-      function nodeForTile(t) {
-        return React.findDOMNode(viewComponent.refs['item-' + t.get('id')]);
       }
 
       // ------
@@ -271,20 +291,18 @@
         and(all({id: _, name: '+', x: null, y: _, offsetTop: _}),
             all(isNumberTile)),
         function(plusTiles, numberTiles) {
-          if (viewComponent) {
-            plusTiles.forEach(t => tryLink(t, numberTiles));
-          }
+          plusTiles.forEach(t => console.log('tryLink', t.toJS()) || tryLink(t, numberTiles));
         }
       );
       // ------
 
       function tryLink(plusItem, numberTiles) {
-        var plusNode = nodeForTile(plusItem);
         numberTiles.forEach(n => {
-          var numberNode = nodeForTile(n);
-          var delta = dist(plusNode, numberNode);
-          if (delta < 1.3 * plusNode.offsetWidth) {
-            console.log('link', n.toJS(), 'with', plusItem.toJS());
+          var delta = dist(plusItem, n);
+          if (delta < 1.3 * plusItem.get('offsetWidth')) {
+            vat.update(plusItem, function(item) {
+              return item.set('x', n.get('id'));
+            });
           }
         });
       }
@@ -351,8 +369,7 @@
       }
       test();
 
-      var viewComponent;
-      vat.on('change', function() {
+      vat.on('step', function() {
         React.render(<DraggableVatView vat={vat} />, document.getElementById('container'));
       });
       vat.step();
