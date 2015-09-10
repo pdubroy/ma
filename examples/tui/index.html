@@ -108,6 +108,10 @@
         return (Math.random() + Math.random() + Math.random() + Math.random() + Math.random() + Math.random()) * s + m;
       }
 
+      function notNull(x) {
+        return x !== null;
+      }
+
       // VatItem
       // -------
 
@@ -286,26 +290,63 @@
       }
 
       // ------
-      // An agent which tries to bind number tiles and '+' tiles.
+      // An agent which tries to bind the x side of a '+' tile.
       vat.watch(
         and(all({id: _, name: '+', x: null, y: _, offsetTop: _}),
             all(isNumberTile)),
         function(plusTiles, numberTiles) {
-          plusTiles.forEach(t => console.log('tryLink', t.toJS()) || tryLink(t, numberTiles));
+          plusTiles.forEach(t => tryLink('x', t, numberTiles));
         }
       );
       // ------
 
-      function tryLink(plusItem, numberTiles) {
-        numberTiles.forEach(n => {
-          var delta = dist(plusItem, n);
-          if (delta < 1.3 * plusItem.get('offsetWidth')) {
-            vat.update(plusItem, function(item) {
-              return item.set('x', n.get('id'));
-            });
-          }
-        });
+      // ------
+      // An agent which tries to bind the y side of a '+' tile.
+      vat.watch(
+        and(all({id: _, name: '+', x: _, y: null, offsetTop: _}),
+            all(isNumberTile)),
+        function(plusTiles, numberTiles) {
+          plusTiles.forEach(t => tryLink('y', t, numberTiles));
+        }
+      );
+      // ------
+
+      // ------
+      // An agent which unbinds tiles that are too far away.
+      vat.watch({id: _, name: '+', x: _, y: _, offsetTop: _}, function(plusTile) {
+        console.log('unlink maybe');
+//        tryUnlink('x', plusTile);
+      });
+      // ------
+
+      function tryLink(prop, plusItem, numberTiles) {
+        var nearest = Immutable.List(numberTiles)
+            .filter(prop === 'x' ? n => n.get('offsetLeft') < plusItem.get('offsetLeft')
+                                 : n => n.get('offsetLeft') > plusItem.get('offsetLeft'))
+            .sortBy(n => dist(plusItem, n)).first();
+        if (!nearest) {
+          return;
+        }
+        if (dist(plusItem, nearest) < 1.3 * plusItem.get('offsetWidth')) {
+          vat.update(plusItem, item => item.set(prop, nearest.get('id')));
+          vat.update(nearest, n => n.set(prop === 'x' ? 'y' : 'x', plusItem.get('id')));
+        }
       }
+
+      function tryUnlink(prop, plusItem) {
+        var linked = vat.try_copy({id: plusItem.get(prop)});
+        console.log('tryUnlink');
+        if (dist(plusItem, linked) >= 1.3 * plusItem.get('offsetWidth')) {
+          vat.update(plusItem, item => item.set(prop, null));
+          vat.update(linked, n => n.set(prop === 'x' ? 'y' : 'x', null));
+        }
+      }
+
+      (function test() {
+        vat.put({name: '+', x: null, y: null});
+        vat.put({name: '3'});
+        vat.put({name: '3'});
+      })()
 
       vat.on('step', function() {
         React.render(<DraggableVatView vat={vat} />, document.getElementById('container'));
